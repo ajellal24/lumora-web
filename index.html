@@ -45,6 +45,10 @@ small,.note{color:var(--tx2)}
 @keyframes fl{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-55vh) scale(1.6);opacity:0}}
 .fly{position:fixed;bottom:18vh;font-size:44px;pointer-events:none;z-index:50;animation:fl 2.4s ease-out forwards}
 @media (prefers-reduced-motion:reduce){.fly{animation-duration:.01s}}
+@keyframes tk{50%{transform:scale(1.07)}}
+.av.talk{box-shadow:0 0 0 3px #4dd0e1,0 0 20px rgba(77,208,225,.8);animation:tk .5s infinite}
+.av.emo{font-size:30px}.ems{display:flex;flex-wrap:wrap;gap:8px}.ems button{font-size:24px;padding:6px 10px}.ems .on{outline:2px solid var(--gold)}
+@media (prefers-reduced-motion:reduce){.av.talk{animation:none}}
 </style>
 </head>
 <body>
@@ -61,23 +65,22 @@ const T = {
  fr:{welcome:'Rencontrez des gens. Parlez en direct.',name:'Nom affiché',email:'E-mail',password:'Mot de passe',signin:'Se connecter',signup:'Créer un compte',checkEmail:'Vérifiez votre e-mail pour confirmer, puis connectez-vous.',logout:'Déconnexion',rooms:'Salons en direct',create:'Nouveau salon',empty:'Aucun salon en direct. Créez le premier.',roomName:'Nom du salon',category:'Catégorie',seats:'Places de parole',createRoom:'Créer le salon',cancel:'Annuler',leave:'Quitter',speakers:'Intervenants',listeners:'Auditeurs',chat:'Discussion',msg:'Écrire un message',send:'Envoyer',speak:'Demander la parole',requests:'Demandes de parole',accept:'Accepter',reject:'Refuser',voiceSoon:'La voix en direct arrive à la prochaine étape.',sent:'Demande envoyée',c_music:'Musique',c_friendship:'Amitié',c_gaming:'Jeux',c_discussion:'Discussion',c_other:'Autre',nokey:'Ajoutez d’abord votre clé Supabase dans index.html.'},
  ar:{welcome:'تعرّف على الناس. تحدّث مباشرة.',name:'الاسم المعروض',email:'البريد الإلكتروني',password:'كلمة المرور',signin:'تسجيل الدخول',signup:'إنشاء حساب',checkEmail:'تحقق من بريدك لتأكيد الحساب ثم سجّل الدخول.',logout:'تسجيل الخروج',rooms:'الغرف المباشرة',create:'غرفة جديدة',empty:'لا توجد غرف مباشرة. أنشئ أول غرفة.',roomName:'اسم الغرفة',category:'التصنيف',seats:'مقاعد المتحدثين',createRoom:'إنشاء الغرفة',cancel:'إلغاء',leave:'مغادرة',speakers:'المتحدثون',listeners:'المستمعون',chat:'الدردشة',msg:'اكتب رسالة',send:'إرسال',speak:'اطلب التحدث',requests:'طلبات التحدث',accept:'قبول',reject:'رفض',voiceSoon:'الصوت المباشر في المرحلة القادمة.',sent:'تم إرسال الطلب',c_music:'موسيقى',c_friendship:'صداقة',c_gaming:'ألعاب',c_discussion:'نقاش',c_other:'أخرى',nokey:'أضف مفتاح Supabase في index.html أولاً.'}
 };
-Object.assign(T.en,{priv:'Private room',pw:'Password',code:'Room ID',joinPriv:'Join private room',gift:'Send gift',to:'To',bal:'Coins',nogift:'No other member',gsent:'Gift sent',newname:'New display name',gmsg:'sent',vjoin:'Join voice',vleave:'Leave voice',mic:'Mic',micoff:'Mic off',nomic:'Only speakers can use the mic'});
-Object.assign(T.fr,{priv:'Salon privé',pw:'Mot de passe',code:'ID du salon',joinPriv:'Rejoindre un salon privé',gift:'Envoyer un cadeau',to:'À',bal:'Pièces',nogift:'Aucun autre membre',gsent:'Cadeau envoyé',newname:'Nouveau nom affiché',gmsg:'a envoyé',vjoin:'Rejoindre la voix',vleave:'Quitter la voix',mic:'Micro',micoff:'Micro coupé',nomic:'Seuls les orateurs ont le micro'});
-Object.assign(T.ar,{priv:'غرفة خاصة',pw:'كلمة المرور',code:'رقم الغرفة',joinPriv:'دخول غرفة خاصة',gift:'إرسال هدية',to:'إلى',bal:'العملات',nogift:'لا يوجد عضو آخر',gsent:'تم إرسال الهدية',newname:'الاسم الجديد',gmsg:'أرسل',vjoin:'دخول الصوت',vleave:'خروج من الصوت',mic:'المايك',micoff:'إيقاف المايك',nomic:'المايك للمتحدثين فقط'});
+Object.assign(T.en,{priv:'Private room',pw:'Password',code:'Room ID',joinPriv:'Join private room',gift:'Send gift',to:'To',bal:'Coins',nogift:'No other member',gsent:'Gift sent',newname:'New display name',gmsg:'sent',vjoin:'Join voice',vleave:'Leave voice',mic:'Mic',micoff:'Mic off',nomic:'Only speakers can use the mic',board:'Leaderboard',pf:'Profile',bio:'Bio',pfsave:'Save',pfav:'Avatar',gtxt:'Continue with Google',lvl:'Lvl',bk:'Back'});
+Object.assign(T.fr,{priv:'Salon privé',pw:'Mot de passe',code:'ID du salon',joinPriv:'Rejoindre un salon privé',gift:'Envoyer un cadeau',to:'À',bal:'Pièces',nogift:'Aucun autre membre',gsent:'Cadeau envoyé',newname:'Nouveau nom affiché',gmsg:'a envoyé',vjoin:'Rejoindre la voix',vleave:'Quitter la voix',mic:'Micro',micoff:'Micro coupé',nomic:'Seuls les orateurs ont le micro',board:'Classement',pf:'Profil',bio:'Bio',pfsave:'Enregistrer',pfav:'Avatar',gtxt:'Continuer avec Google',lvl:'Niv.',bk:'Retour'});
+Object.assign(T.ar,{priv:'غرفة خاصة',pw:'كلمة المرور',code:'رقم الغرفة',joinPriv:'دخول غرفة خاصة',gift:'إرسال هدية',to:'إلى',bal:'العملات',nogift:'لا يوجد عضو آخر',gsent:'تم إرسال الهدية',newname:'الاسم الجديد',gmsg:'أرسل',vjoin:'دخول الصوت',vleave:'خروج من الصوت',mic:'المايك',micoff:'إيقاف المايك',nomic:'المايك للمتحدثين فقط',board:'الترتيب',pf:'الملف الشخصي',bio:'نبذة',pfsave:'حفظ',pfav:'الصورة',gtxt:'الدخول بـ Google',lvl:'مستوى',bk:'رجوع'});
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rank = r => ({owner:5,admin:4,moderator:3,speaker:2,listener:1}[r] || 0);
-let user = null, view = '', cur = null, members = [], names = {}, ch = null;
+const avs={}; let user = null, view = '', cur = null, members = [], names = {}, ch = null;
 
 function toast(m){ const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
 function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
 function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
-  const nm=$('#nm'); if(nm) nm.onclick=async()=>{ const v=(prompt(t('newname'))||'').trim(); if(!v) return;
-    const {error}=await sb.from('profiles').update({display_name:v}).eq('id',user.id); if(error) return toast(error.message); names[user.id]=v; toast('✓ '+v); } }
+  const nm=$('#nm'); if(nm) nm.onclick=profileView; }
 function cleanup(){ voiceLeave(); if(ch){ sb.removeChannel(ch); ch=null; } }
 
 function route(){
@@ -93,17 +96,19 @@ function authView(){
     <input id="nm" placeholder="${t('name')}" maxlength="40" autocomplete="nickname">
     <input id="em" type="email" placeholder="${t('email')}" autocomplete="email">
     <input id="pw" type="password" placeholder="${t('password')}" autocomplete="current-password">
-    <button class="pri" id="in">${t('signin')}</button><button class="sec" id="up">${t('signup')}</button></main>`;
+    <button class="pri" id="in">${t('signin')}</button><button class="sec" id="up">${t('signup')}</button><button class="sec" id="go">G · ${t('gtxt')}</button></main>`;
   bindHdr();
   const cred = () => ({ email: $('#em').value.trim(), password: $('#pw').value });
   const guard = () => { if (CFG.key.startsWith('PASTE')) { toast(t('nokey')); return true; } };
   $('#in').onclick = async () => { if(guard())return; const {error}=await sb.auth.signInWithPassword(cred()); if(error) toast(error.message); };
+  $('#go').onclick = async () => { if(guard())return; const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}}); if(error) toast(error.message); };
   $('#up').onclick = async () => { if(guard())return; const {data,error}=await sb.auth.signUp({...cred(), options:{data:{name:$('#nm').value.trim()}}}); if(error) return toast(error.message); if(!data.session) toast(t('checkEmail')); };
 }
 
 async function roomsView(){
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div id="list" class="c" style="padding:0"></div></main>`;
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div id="list" class="c" style="padding:0"></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
+  $('#lb').onclick=()=>{ view='board'; boardView(); };
   $('#pj').onclick=async()=>{ const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:+$('#pc').value,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); };
   const draw=async(quiet)=>{
   const {data,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count').eq('is_live',true).order('participant_count',{ascending:false}).limit(30);
@@ -168,12 +173,16 @@ function renderVoice(){ const v=$('#vo'); if(!v) return;
   v.innerHTML=`<button class="sec" id="vj">${vjoined?'🔇 '+t('vleave'):'🎧 '+t('vjoin')}</button>${vjoined?`<button class="${vstream?'pri':'sec'}" id="vm">🎙 ${vstream?t('micoff'):t('mic')}</button>`:''}`;
   $('#vj').onclick=()=>{ if(vjoined){ voiceLeave(); renderVoice(); } else voiceJoin(); };
   const m=$('#vm'); if(m) m.onclick=micToggle; }
+const vmon={};
+function stopWatch(uid){ const v=vmon[uid]; if(v){ clearInterval(v.timer); try{v.ctx.close();}catch(e){} delete vmon[uid]; } document.querySelectorAll('.av[data-uid="'+uid+'"]').forEach(e=>e.classList.remove('talk')); }
+function watchLevel(stream,uid){ stopWatch(uid); try{ const C=window.AudioContext||window.webkitAudioContext; const ctx=new C(); if(ctx.resume) ctx.resume(); const an=ctx.createAnalyser(); an.fftSize=256; ctx.createMediaStreamSource(stream).connect(an); const buf=new Uint8Array(an.fftSize);
+  const timer=setInterval(()=>{ an.getByteTimeDomainData(buf); let m=0; for(const x of buf) m=Math.max(m,Math.abs(x-128)); document.querySelectorAll('.av[data-uid="'+uid+'"]').forEach(e=>e.classList.toggle('talk',m>12)); },150); vmon[uid]={ctx,timer}; }catch(e){} }
 function vsend(to,d){ vc&&vc.send({type:'broadcast',event:'sig',payload:{from:user.id,to,...d}}); }
-function drop(id){ const pc=vpeers[id]; if(pc){ try{pc.close();}catch(e){} delete vpeers[id]; } const a=document.getElementById('a'+id); if(a) a.remove(); }
+function drop(id){ stopWatch(id); const pc=vpeers[id]; if(pc){ try{pc.close();}catch(e){} delete vpeers[id]; } const a=document.getElementById('a'+id); if(a) a.remove(); }
 function mkPeer(id){ const pc=new RTCPeerConnection(ICE); vpeers[id]=pc; pc._q=[];
   pc.onicecandidate=e=>{ if(e.candidate) vsend(id,{c:e.candidate}); };
   pc.ontrack=e=>{ let a=document.getElementById('a'+id); if(!a){ a=document.createElement('audio'); a.id='a'+id; a.autoplay=true; a.setAttribute('playsinline',''); document.body.appendChild(a); }
-    a.srcObject=e.streams[0]||new MediaStream([e.track]); a.play().catch(()=>{}); };
+    a.srcObject=e.streams[0]||new MediaStream([e.track]); a.play().catch(()=>{}); watchLevel(a.srcObject,id); };
   pc.onconnectionstatechange=()=>{ if(pc.connectionState==='failed') drop(id); };
   return pc; }
 function curTrack(){ return vstream?vstream.getAudioTracks()[0]:null; }
@@ -194,12 +203,38 @@ function voiceJoin(){ if(vjoined||!cur) return; vjoined=true;
       Object.keys(vpeers).forEach(id=>{ if(!ids.includes(id)) drop(id); }); })
     .subscribe(st=>{ if(st==='SUBSCRIBED') vc.track({on:1}); });
   renderVoice(); }
-async function micToggle(){ if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(null))); }
+async function micToggle(){ if(vstream){ stopWatch(user.id); vstream.getTracks().forEach(x=>x.stop()); vstream=null; Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(null))); }
   else { if(myRole()==='listener') return toast(t('nomic'));
     try{ vstream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ return toast(e.message); }
-    Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(curTrack()))); }
+    Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(curTrack()))); watchLevel(vstream,user.id); }
   renderVoice(); }
-function voiceLeave(){ Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; }
+function voiceLeave(){ stopWatch(user&&user.id); Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; }
+async function boardView(){
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🏆 ${t('board')}</h2><button class="sec" id="bb">${t('bk')}</button></div><div id="bl2" class="c" style="padding:0"></div></main>`;
+  bindHdr(); $('#bb').onclick=()=>{ view='rooms'; roomsView(); };
+  const {data,error}=await sb.from('user_levels').select('user_id,level,popularity_points').order('popularity_points',{ascending:false}).limit(20);
+  if(error) return toast(error.message);
+  const ids=(data||[]).map(x=>x.user_id);
+  const {data:ps}=ids.length?await sb.from('profiles').select('id,display_name').in('id',ids):{data:[]};
+  (ps||[]).forEach(x=>names[x.id]=x.display_name);
+  const L=$('#bl2'); if(!L) return;
+  L.innerHTML=(data||[]).map((r,i)=>`<div class="card"><div class="row"><b>${['🥇','🥈','🥉'][i]||'#'+(i+1)} ${esc(names[r.user_id]||'?')}</b><span class="gold">${t('lvl')} ${r.level} · ${r.popularity_points} ★</span></div></div>`).join('');
+}
+async function profileView(){
+  if(cur){ await sb.rpc('leave_room',{p_room:cur.id}); cleanup(); cur=null; }
+  view='profile';
+  const {data:me}=await sb.from('profiles').select('display_name,bio,avatar_url').eq('id',user.id).single();
+  let em=(me?.avatar_url||'').startsWith('emoji:')?me.avatar_url.slice(6):'';
+  const E=['','🦊','🐼','🦁','🐯','🐸','🐧','🦄','🐙','🚀','🌙','🔥','🎧'];
+  app.innerHTML=hdr(true)+`<main class="c"><h2>${t('pf')}</h2><input id="pn" maxlength="40" value="${esc(me?.display_name||'')}"><textarea id="pb" maxlength="300" rows="3" placeholder="${t('bio')}">${esc(me?.bio||'')}</textarea><b>${t('pfav')}</b><div class="ems" id="em2">${E.map(x=>`<button class="sec" data-e="${x}">${x||'A'}</button>`).join('')}</div><div class="row"><button class="pri" id="ps">${t('pfsave')}</button><button class="sec" id="pk">${t('bk')}</button></div></main>`;
+  bindHdr();
+  const mark=()=>$('#em2').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.e===em));
+  $('#em2').querySelectorAll('button').forEach(b=>b.onclick=()=>{ em=b.dataset.e; mark(); }); mark();
+  $('#pk').onclick=()=>{ view='rooms'; roomsView(); };
+  $('#ps').onclick=async()=>{ const n=$('#pn').value.trim(); if(!n) return;
+    const {error}=await sb.from('profiles').update({display_name:n,bio:$('#pb').value.trim()||null,avatar_url:em?'emoji:'+em:null}).eq('id',user.id);
+    if(error) return toast(error.message); names[user.id]=n; toast('✓'); view='rooms'; roomsView(); };
+}
 let giftList=[];
 async function giftPanel(){
   const g=$('#gf'); if(!g) return;
@@ -234,13 +269,13 @@ async function addMsg(m){
 
 async function loadMembers(){
   if(!cur) return;
-  const {data}=await sb.from('room_members').select('user_id,role,seat_index,profiles(display_name)').eq('room_id',cur.id).is('left_at',null);
-  members=data||[]; members.forEach(m=>names[m.user_id]=m.profiles?.display_name||'?');
+  const {data}=await sb.from('room_members').select('user_id,role,seat_index,profiles(display_name,avatar_url)').eq('room_id',cur.id).is('left_at',null);
+  members=data||[]; members.forEach(m=>{names[m.user_id]=m.profiles?.display_name||'?'; const a=m.profiles?.avatar_url; avs[m.user_id]=a&&a.startsWith('emoji:')?a.slice(6):'';});
   if(!$('#seats')) return;
   const me=members.find(m=>m.user_id===user.id);
   fillRecv(); $('#cnt').textContent=`${members.length}/${cur.capacity}`;
   let s=''; for(let i=0;i<cur.seat_count;i++){ const m=members.find(x=>x.seat_index===i);
-    s+= m ? `<div class="seat"><div class="av ${m.role==='owner'?'own':''}">${esc((names[m.user_id]||'?')[0].toUpperCase())}</div><small>${esc(names[m.user_id])}</small></div>` : `<div class="seat"><div class="av empty">+</div></div>`; }
+    s+= m ? `<div class="seat"><div class="av ${m.role==='owner'?'own':''} ${avs[m.user_id]?'emo':''}" data-uid="${m.user_id}">${avs[m.user_id]?esc(avs[m.user_id]):esc((names[m.user_id]||'?')[0].toUpperCase())}</div><small>${esc(names[m.user_id])}</small></div>` : `<div class="seat"><div class="av empty">+</div></div>`; }
   $('#seats').innerHTML=s;
   $('#lis').innerHTML=members.filter(m=>m.seat_index==null).map(m=>`<span class="chip">${esc(names[m.user_id])}</span>`).join('');
   let a='';
