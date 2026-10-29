@@ -429,13 +429,17 @@ async function dmView(uid){
   cleanup(); cur=null; dmPeer=uid; view='dm'; await nameOf(uid);
   app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><b>${esc(names[uid]||'?')}</b></div><div class="chat" id="dc" style="height:55vh"></div><div class="send"><input id="di" maxlength="1000" placeholder="${t('msg')}"><button class="pri" id="ds">➤</button></div></main>`;
   bindHdr(); const box=$('#dc');
-  const add=m=>{ const e=document.createElement('div'); e.className='m'+(m.sender_id===user.id?' me':''); e.textContent=m.body; box.appendChild(e); box.scrollTop=box.scrollHeight; };
+  const add=m=>{ const e=document.createElement('div'); const mine=m.sender_id===user.id; e.className='m'+(mine?' me':''); e.textContent=m.body; if(m.id) e.dataset.id=m.id;
+    if(mine){ const k=document.createElement('small'); k.className='tk'; k.style.cssText='margin-inline-start:6px;opacity:.9'; k.textContent=m.read_at?'✓✓ '+t('readMark'):'✓'; if(m.read_at) k.style.color='#4dd4e6'; e.appendChild(k); }
+    box.appendChild(e); box.scrollTop=box.scrollHeight; };
   $('#bk').onclick=()=>{ if(dch){ sb.removeChannel(dch); dch=null; } view='inbox'; inboxView(); };
-  const {data}=await sb.from('dms').select('sender_id,body').or(`and(sender_id.eq.${user.id},receiver_id.eq.${uid}),and(sender_id.eq.${uid},receiver_id.eq.${user.id})`).order('created_at',{ascending:false}).limit(50);
+  const {data}=await sb.from('dms').select('id,sender_id,body,read_at').or(`and(sender_id.eq.${user.id},receiver_id.eq.${uid}),and(sender_id.eq.${uid},receiver_id.eq.${user.id})`).order('created_at',{ascending:false}).limit(50);
   (data||[]).reverse().forEach(add);
   sb.rpc('mark_dm_read',{p_peer:uid}).then(()=>refreshUnread());
-  dch=sb.channel('dm-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},p=>{ if(p.new.sender_id===uid){ add(p.new); sb.rpc('mark_dm_read',{p_peer:uid}); } }).subscribe();
-  const send=async()=>{ const b=$('#di').value.trim(); if(!b) return; $('#di').value=''; const {error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:b}); if(error) toast(error.message); else add({sender_id:user.id,body:b}); };
+  dch=sb.channel('dm-'+user.id)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'dms',filter:'sender_id=eq.'+user.id},p=>{ if(!p.new.read_at) return; const el=box.querySelector('[data-id="'+p.new.id+'"] .tk'); if(el){ el.textContent='✓✓ '+t('readMark'); el.style.color='#4dd4e6'; } })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},p=>{ if(p.new.sender_id===uid){ add(p.new); sb.rpc('mark_dm_read',{p_peer:uid}); } }).subscribe();
+  const send=async()=>{ const b=$('#di').value.trim(); if(!b) return; $('#di').value=''; const {data:ins,error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:b}).select('id,read_at').single(); if(error) toast(error.message); else add({id:ins&&ins.id,sender_id:user.id,body:b,read_at:ins&&ins.read_at}); };
   $('#ds').onclick=send; $('#di').onkeydown=e=>{ if(e.key==='Enter') send(); };
 }
 </script>
