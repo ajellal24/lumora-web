@@ -114,6 +114,10 @@ Object.assign(T.ar,{srch:'ابحث بالاسم أو الرقم',allc:'الكل'
 Object.assign(T.en,{rep:'Report',repAsk:'Reason for the report',repSent:'Report sent',ban:'Ban from room',banAsk:'Ban this user from the room?',banned:'User banned',nowLive:'opened a room',readMark:'Read',typing:'…'});
 Object.assign(T.fr,{rep:'Signaler',repAsk:'Motif du signalement',repSent:'Signalement envoyé',ban:'Bannir du salon',banAsk:'Bannir cet utilisateur du salon ?',banned:'Utilisateur banni',nowLive:'a ouvert un salon',readMark:'Lu',typing:'…'});
 Object.assign(T.ar,{rep:'إبلاغ',repAsk:'سبب الإبلاغ',repSent:'تم إرسال البلاغ',ban:'منع من دخول الغرفة',banAsk:'منع هذا المستخدم من دخول الغرفة؟',banned:'تم منع المستخدم',nowLive:'فتح غرفة',readMark:'مقروء',typing:'…'});
+Object.assign(T.en,{adm:'Admin',reps:'Reports',bans:'Banned users',unban:'Unban',norep:'Nothing here',unbanned:'Ban removed',inv:'Invite to room',invSent:'Invitation sent',invJoin:'Join room',by:'by',inRoom:'room'});
+Object.assign(T.fr,{adm:'Admin',reps:'Signalements',bans:'Utilisateurs bannis',unban:'Débannir',norep:'Rien ici',unbanned:'Bannissement levé',inv:'Inviter au salon',invSent:'Invitation envoyée',invJoin:'Rejoindre le salon',by:'par',inRoom:'salon'});
+Object.assign(T.ar,{adm:'الإدارة',reps:'البلاغات',bans:'المحظورون',unban:'رفع الحظر',norep:'لا شيء هنا',unbanned:'تم رفع الحظر',inv:'دعوة للغرفة',invSent:'تم إرسال الدعوة',invJoin:'دخول الغرفة',by:'من',inRoom:'الغرفة'});
+let isAdm=null;
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
@@ -138,10 +142,11 @@ async function userSheet(uid){ closeSheet();
     if(rank(me.role)>=4) ac+=`<button class="sec" data-k="${tg.role==='moderator'?'unmod':'promote'}">🛡 ${tg.role==='moderator'?t('unmod'):t('promote')}</button>`;
     ac+=`<button class="sec dng" data-k="kick">🚫 ${t('kick')}</button><button class="sec dng" data-k="ban">⛔ ${t('ban')}</button>`;
   }
-  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec" data-k="inv">🎟 ${t('inv')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k; closeSheet(); if(k==='x') return;
     if(k==='fol'){ const on=b.dataset.f==='1'; const r0=on?await sb.from('follow_links').delete().eq('follower',user.id).eq('followed',uid):await sb.from('follow_links').insert({follower:user.id,followed:uid}); return toast(r0.error?r0.error.message:t(on?'foff':'fon')); }
     if(k==='dm'){ return dmView(uid); }
+    if(k==='inv'){ const {error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:'🎟 '+cur.name+' [[room:'+cur.id+']]'}); return toast(error?error.message:t('invSent')); }
     if(k==='rep'){ const why=(prompt(t('repAsk'))||'').trim().slice(0,500); if(!why) return; const {error}=await sb.from('reports').insert({reporter:user.id,reported:uid,room_id:cur?cur.id:null,reason:why}); return toast(error?error.message:t('repSent')); }
     if(k==='ban'){ if(!confirm(t('banAsk'))) return; const {error}=await sb.rpc('ban_member',{p_room:cur.id,p_user:uid}); toast(error?error.message:t('banned')); return loadMembers(); }
     const a={room:cur.id}; let r;
@@ -165,10 +170,22 @@ function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.
 function shrink(f,n){ return new Promise((ok,no)=>{ const u=URL.createObjectURL(f), im=new Image(); im.onload=()=>{ const s=Math.min(im.width,im.height), c=document.createElement('canvas'); c.width=c.height=n; c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,n,n); URL.revokeObjectURL(u); c.toBlob(b=>b?ok(b):no(new Error('image')),'image/jpeg',.85); }; im.onerror=()=>no(new Error('image')); im.src=u; }); }
 function toast(m){ const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
-function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="ib">✉<span id="ubd" class="gold"></span></button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
+function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="ad" hidden>🛡</button><button class="ghost" id="ib">✉<span id="ubd" class="gold"></span></button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
 function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
   const ib=$('#ib'); if(ib) ib.onclick=()=>{ cleanup(); cur=null; view='inbox'; inboxView(); };
-  const nm=$('#nm'); if(nm) nm.onclick=profileView; refreshUnread(); }
+  const nm=$('#nm'); if(nm) nm.onclick=profileView; refreshUnread();
+  const ad=$('#ad'); if(ad){ const show=()=>{ ad.hidden=!isAdm; ad.onclick=()=>{ cleanup(); cur=null; view='admin'; adminView(); }; };
+    if(isAdm===null) sb.rpc('is_admin').then(({data})=>{ isAdm=data===true; show(); }); else show(); } }
+async function adminView(){
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>🛡 ${t('adm')}</h2></div><h3>${t('reps')}</h3><div id="ar" class="c" style="padding:0"></div><h3>${t('bans')}</h3><div id="ab" class="c" style="padding:0"></div></main>`;
+  bindHdr(); $('#bk').onclick=()=>{ view='rooms'; roomsView(); };
+  const [{data:rp,error:e1},{data:bn,error:e2}]=await Promise.all([sb.rpc('admin_list_reports'),sb.rpc('admin_list_bans')]);
+  if(e1||e2) return toast((e1||e2).message);
+  const L1=$('#ar'), L2=$('#ab'); if(!L1) return;
+  L1.innerHTML=(rp||[]).length?rp.map(r=>`<div class="card"><b>${esc(r.reporter_name||'?')} → ${esc(r.reported_name||'?')}</b><span>${esc(r.reason)}</span><small>${new Date(r.created_at).toLocaleString()}</small></div>`).join(''):`<p class="note">${t('norep')}</p>`;
+  L2.innerHTML=(bn||[]).length?bn.map(b=>`<div class="card"><div class="row"><span><b>${esc(b.user_name||'?')}</b><br><small>${t('inRoom')}: ${esc(b.room_name||'?')}</small></span><button class="sec" data-r="${b.room_id}" data-u="${b.user_id}">${t('unban')}</button></div></div>`).join(''):`<p class="note">${t('norep')}</p>`;
+  L2.querySelectorAll('button').forEach(x=>x.onclick=async e=>{ e.stopPropagation(); const {error}=await sb.rpc('admin_unban',{p_room:x.dataset.r,p_user:x.dataset.u}); toast(error?error.message:t('unbanned')); if(!error) adminView(); });
+}
 async function refreshUnread(){ if(!user||!$('#ubd')) return; try{ const {data,error}=await sb.rpc('unread_dm_count'); if(error) return; let n=data; if(Array.isArray(n)) n=n[0]; if(n&&typeof n==='object') n=Object.values(n)[0]; n=+n||0; const e=$('#ubd'); if(e) e.textContent=n>0?' '+n:''; }catch(e){} }
 let nch=null;
 function startNotifs(){ if(nch||!user) return; nch=sb.channel('notif-'+user.id)
@@ -429,7 +446,8 @@ async function dmView(uid){
   cleanup(); cur=null; dmPeer=uid; view='dm'; await nameOf(uid);
   app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><b>${esc(names[uid]||'?')}</b></div><div class="chat" id="dc" style="height:55vh"></div><div class="send"><input id="di" maxlength="1000" placeholder="${t('msg')}"><button class="pri" id="ds">➤</button></div></main>`;
   bindHdr(); const box=$('#dc');
-  const add=m=>{ const e=document.createElement('div'); const mine=m.sender_id===user.id; e.className='m'+(mine?' me':''); e.textContent=m.body; if(m.id) e.dataset.id=m.id;
+  const add=m=>{ const e=document.createElement('div'); const mine=m.sender_id===user.id; e.className='m'+(mine?' me':''); const mm=/\[\[room:([0-9a-f-]{36})\]\]/.exec(m.body||''); e.textContent=mm?m.body.replace(mm[0],'').trim():m.body; if(m.id) e.dataset.id=m.id;
+    if(mm){ const jb=document.createElement('button'); jb.className='pri'; jb.style.cssText='display:block;margin-top:6px;padding:6px 14px'; jb.textContent=t('invJoin'); jb.onclick=async()=>{ const r=await sb.rpc('join_room',{p_room:mm[1],p_password:null}); if(r.error) return toast(r.error.message); cur={id:mm[1]}; view='room'; openRoom(mm[1]); }; e.appendChild(jb); }
     if(mine){ const k=document.createElement('small'); k.className='tk'; k.style.cssText='margin-inline-start:6px;opacity:.9'; k.textContent=m.read_at?'✓✓ '+t('readMark'):'✓'; if(m.read_at) k.style.color='#4dd4e6'; e.appendChild(k); }
     box.appendChild(e); box.scrollTop=box.scrollHeight; };
   $('#bk').onclick=()=>{ if(dch){ sb.removeChannel(dch); dch=null; } view='inbox'; inboxView(); };
