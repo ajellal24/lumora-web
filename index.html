@@ -107,13 +107,16 @@ Object.assign(T.ar,{mute:'كتم',unmute:'إلغاء الكتم',demote:'نقل 
 Object.assign(T.en,{promote:'Make moderator',unmod:'Remove moderator',stg:'Room settings',closeRoom:'Close room',closeAsk:'Close this room for everyone?',closed:'The room was closed',saved:'Saved',noBio:'No bio yet'});
 Object.assign(T.fr,{promote:'Nommer modérateur',unmod:'Retirer modérateur',stg:'Paramètres du salon',closeRoom:'Fermer le salon',closeAsk:'Fermer ce salon pour tout le monde ?',closed:'Le salon a été fermé',saved:'Enregistré',noBio:'Pas encore de bio'});
 Object.assign(T.ar,{promote:'تعيين مشرف',unmod:'إزالة الإشراف',stg:'إعدادات الغرفة',closeRoom:'إغلاق الغرفة',closeAsk:'إغلاق هذه الغرفة للجميع؟',closed:'تم إغلاق الغرفة',saved:'تم الحفظ',noBio:'لا توجد نبذة'});
+Object.assign(T.en,{srch:'Search name or ID',allc:'All',follow:'Follow',unfollow:'Unfollow',fon:'Following now',foff:'Unfollowed',dm:'Messages',fing:'Following',convs:'Conversations',nodm:'Nothing yet'});
+Object.assign(T.fr,{srch:'Nom ou ID du salon',allc:'Toutes',follow:'Suivre',unfollow:'Ne plus suivre',fon:'Vous suivez',foff:'Vous ne suivez plus',dm:'Messages',fing:'Abonnements',convs:'Conversations',nodm:'Rien pour le moment'});
+Object.assign(T.ar,{srch:'ابحث بالاسم أو الرقم',allc:'الكل',follow:'متابعة',unfollow:'إلغاء المتابعة',fon:'تمت المتابعة',foff:'تم إلغاء المتابعة',dm:'الرسائل',fing:'المتابَعون',convs:'المحادثات',nodm:'لا شيء بعد'});
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rank = r => ({owner:5,admin:4,moderator:3,speaker:2,listener:1}[r] || 0);
-const avs={}; let user = null, view = '', cur = null, members = [], names = {}, ch = null;
+const avs={}; let dmPeer=null, dch=null, user = null, view = '', cur = null, members = [], names = {}, ch = null;
 
 const CI={music:'🎵',friendship:'🤝',gaming:'🎮',discussion:'💬',other:'✨'};
 const RX=['❤️','🔥','👏','😂','🎉','😮'];
@@ -131,8 +134,10 @@ async function userSheet(uid){ closeSheet();
     if(rank(me.role)>=4) ac+=`<button class="sec" data-k="${tg.role==='moderator'?'unmod':'promote'}">🛡 ${tg.role==='moderator'?t('unmod'):t('promote')}</button>`;
     ac+=`<button class="sec dng" data-k="kick">🚫 ${t('kick')}</button>`;
   }
-  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k; closeSheet(); if(k==='x') return;
+    if(k==='fol'){ const on=b.dataset.f==='1'; const r0=on?await sb.from('follows').delete().eq('follower',user.id).eq('followed',uid):await sb.from('follows').insert({follower:user.id,followed:uid}); return toast(r0.error?r0.error.message:t(on?'foff':'fon')); }
+    if(k==='dm'){ return dmView(uid); }
     const a={room:cur.id}; let r;
     if(k==='mute') r=await sb.rpc('set_member_muted',{p_room:cur.id,p_user:uid,p_muted:!tg.muted});
     else if(k==='demote') r=await sb.rpc('demote_member',{p_room:cur.id,p_user:uid});
@@ -142,6 +147,7 @@ async function userSheet(uid){ closeSheet();
   document.body.appendChild(d);
   const [{data:p},{data:lv}]=await Promise.all([sb.from('profiles').select('bio').eq('id',uid).maybeSingle(),sb.from('user_levels').select('level,popularity_points').eq('user_id',uid).maybeSingle()]);
   if(document.getElementById('sheet')!==d) return;
+  if(uid!==user.id){ const {data:f}=await sb.from('follows').select('followed').eq('follower',user.id).eq('followed',uid).maybeSingle(); const fb=$('#fb'); if(fb){ fb.dataset.f=f?'1':'0'; fb.textContent=f?'✓ '+t('unfollow'):'＋ '+t('follow'); } }
   $('#ub').textContent=(p&&p.bio)||t('noBio'); $('#ul').textContent=lv?t('lvl')+' '+lv.level+' · '+lv.popularity_points+' ★':''; }
 function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
   d.innerHTML=`<div class="sh"><b>⚙ ${t('stg')}</b><input id="rnm" maxlength="60" value="${esc(cur.name)}"><button class="pri" data-k="save">${t('pfsave')}</button><button class="sec dng" data-k="close">🚪 ${t('closeRoom')}</button><button class="ghost" data-k="x">${t('close')}</button></div>`;
@@ -153,15 +159,18 @@ function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.
 function shrink(f,n){ return new Promise((ok,no)=>{ const u=URL.createObjectURL(f), im=new Image(); im.onload=()=>{ const s=Math.min(im.width,im.height), c=document.createElement('canvas'); c.width=c.height=n; c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,n,n); URL.revokeObjectURL(u); c.toBlob(b=>b?ok(b):no(new Error('image')),'image/jpeg',.85); }; im.onerror=()=>no(new Error('image')); im.src=u; }); }
 function toast(m){ const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
-function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
+function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="ib">✉</button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
 function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
+  const ib=$('#ib'); if(ib) ib.onclick=()=>{ cleanup(); cur=null; view='inbox'; inboxView(); };
   const nm=$('#nm'); if(nm) nm.onclick=profileView; }
-function cleanup(){ closeSheet(); voiceLeave(); if(ch){ sb.removeChannel(ch); ch=null; } }
+function cleanup(){ if(dch){ sb.removeChannel(dch); dch=null; } closeSheet(); voiceLeave(); if(ch){ sb.removeChannel(ch); ch=null; } }
 
 function route(){
   if(!user){ cleanup(); view='auth'; return authView(); }
   if(view==='room' && cur) return openRoom(cur.id);
   if(view==='create') return createView();
+  if(view==='inbox') return inboxView();
+  if(view==='dm'&&dmPeer) return dmView(dmPeer);
   view='rooms'; roomsView();
 }
 
@@ -181,18 +190,19 @@ function authView(){
 }
 
 async function roomsView(){
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div id="list" class="c" style="padding:0"></div></main>`;
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div id="list" class="c" style="padding:0"></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
   $('#lb').onclick=()=>{ view='board'; boardView(); };
   $('#pj').onclick=async()=>{ const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:+$('#pc').value,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); };
   const draw=async(quiet)=>{
-  const {data,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count').eq('is_live',true).order('participant_count',{ascending:false}).limit(30);
+  const {data:all,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count').eq('is_live',true).order('participant_count',{ascending:false}).limit(100);
   if(error) return quiet?0:toast(error.message);
-  const L=$('#list'); if(!L) return;
+  const L=$('#list'); if(!L) return; const q=$('#sq').value.trim().toLowerCase(), cg=$('#sc').value; const data=all.filter(r=>(!cg||r.category===cg)&&(!q||r.name.toLowerCase().includes(q)||String(r.public_id)===q));
   if(!data.length){ L.innerHTML=`<p class="note">${t('empty')}</p>`; return; }
   L.innerHTML=data.map(r=>`<div class="card rc" tabindex="0" data-id="${r.id}"><div class="ico">${CI[r.category]||'✨'}</div><div class="rb"><b>${esc(r.name)}</b><small>${t('c_'+r.category)} · #${r.public_id}</small></div><span class="live">● ${r.participant_count}/${r.capacity}</span></div>`).join('');
   L.querySelectorAll('.card').forEach(el=>{ const go=()=>join(data.find(x=>x.id===el.dataset.id)); el.onclick=go; el.onkeydown=e=>{if(e.key==='Enter')go()}; });
   };
+  let tm; $('#sq').oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>draw(true),250); }; $('#sc').onchange=()=>draw(true);
   await draw(false);
   clearInterval(window._rl); window._rl=setInterval(()=>{ if($('#list')) draw(true); else clearInterval(window._rl); },5000);
 }
@@ -385,6 +395,30 @@ async function loadMembers(){
 
 sb.auth.onAuthStateChange((_e,s)=>{ const u=s?.user||null; if(u?.id===user?.id && view) return; user=u; setTimeout(route,0); });
 document.documentElement.dir = lang==='ar'?'rtl':'ltr';
+
+async function inboxView(){
+  if(dch){ sb.removeChannel(dch); dch=null; }
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>${t('dm')}</h2></div><h3>${t('fing')}</h3><div id="fl" class="c" style="padding:0"></div><h3>${t('convs')}</h3><div id="cv" class="c" style="padding:0"></div></main>`;
+  bindHdr(); $('#bk').onclick=()=>{ view='rooms'; roomsView(); };
+  const [{data:f},{data:m}]=await Promise.all([sb.from('follows').select('followed').eq('follower',user.id),sb.from('dms').select('sender_id,receiver_id').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at',{ascending:false}).limit(100)]);
+  const fl=(f||[]).map(x=>x.followed), cv=[]; (m||[]).forEach(x=>{ const o=x.sender_id===user.id?x.receiver_id:x.sender_id; if(!cv.includes(o)) cv.push(o); });
+  const ids=[...new Set([...fl,...cv])]; if(ids.length){ const {data:ps}=await sb.from('profiles').select('id,display_name,avatar_url').in('id',ids); (ps||[]).forEach(p=>{ names[p.id]=p.display_name; avs[p.id]=p.avatar_url||''; }); }
+  const card=id=>`<div class="card rc" data-u="${id}"><div class="av sm ${avCls(id)}">${avInner(id)}</div><div class="rb"><b>${esc(names[id]||'?')}</b></div><span>✉</span></div>`;
+  const put=(sel,a)=>{ const e=$(sel); if(!e) return; e.innerHTML=a.length?a.map(card).join(''):`<p class="note">${t('nodm')}</p>`; e.querySelectorAll('.card').forEach(c=>c.onclick=()=>dmView(c.dataset.u)); };
+  put('#fl',fl); put('#cv',cv);
+}
+async function dmView(uid){
+  cleanup(); cur=null; dmPeer=uid; view='dm'; await nameOf(uid);
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><b>${esc(names[uid]||'?')}</b></div><div class="chat" id="dc" style="height:55vh"></div><div class="send"><input id="di" maxlength="1000" placeholder="${t('msg')}"><button class="pri" id="ds">➤</button></div></main>`;
+  bindHdr(); const box=$('#dc');
+  const add=m=>{ const e=document.createElement('div'); e.className='m'+(m.sender_id===user.id?' me':''); e.textContent=m.body; box.appendChild(e); box.scrollTop=box.scrollHeight; };
+  $('#bk').onclick=()=>{ if(dch){ sb.removeChannel(dch); dch=null; } view='inbox'; inboxView(); };
+  const {data}=await sb.from('dms').select('sender_id,body').or(`and(sender_id.eq.${user.id},receiver_id.eq.${uid}),and(sender_id.eq.${uid},receiver_id.eq.${user.id})`).order('created_at',{ascending:false}).limit(50);
+  (data||[]).reverse().forEach(add);
+  dch=sb.channel('dm-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},p=>{ if(p.new.sender_id===uid) add(p.new); }).subscribe();
+  const send=async()=>{ const b=$('#di').value.trim(); if(!b) return; $('#di').value=''; const {error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:b}); if(error) toast(error.message); else add({sender_id:user.id,body:b}); };
+  $('#ds').onclick=send; $('#di').onkeydown=e=>{ if(e.key==='Enter') send(); };
+}
 </script>
 </body>
 </html>
