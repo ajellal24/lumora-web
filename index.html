@@ -58,9 +58,9 @@ const T = {
  fr:{welcome:'Rencontrez des gens. Parlez en direct.',name:'Nom affiché',email:'E-mail',password:'Mot de passe',signin:'Se connecter',signup:'Créer un compte',checkEmail:'Vérifiez votre e-mail pour confirmer, puis connectez-vous.',logout:'Déconnexion',rooms:'Salons en direct',create:'Nouveau salon',empty:'Aucun salon en direct. Créez le premier.',roomName:'Nom du salon',category:'Catégorie',seats:'Places de parole',createRoom:'Créer le salon',cancel:'Annuler',leave:'Quitter',speakers:'Intervenants',listeners:'Auditeurs',chat:'Discussion',msg:'Écrire un message',send:'Envoyer',speak:'Demander la parole',requests:'Demandes de parole',accept:'Accepter',reject:'Refuser',voiceSoon:'La voix en direct arrive à la prochaine étape.',sent:'Demande envoyée',c_music:'Musique',c_friendship:'Amitié',c_gaming:'Jeux',c_discussion:'Discussion',c_other:'Autre',nokey:'Ajoutez d’abord votre clé Supabase dans index.html.'},
  ar:{welcome:'تعرّف على الناس. تحدّث مباشرة.',name:'الاسم المعروض',email:'البريد الإلكتروني',password:'كلمة المرور',signin:'تسجيل الدخول',signup:'إنشاء حساب',checkEmail:'تحقق من بريدك لتأكيد الحساب ثم سجّل الدخول.',logout:'تسجيل الخروج',rooms:'الغرف المباشرة',create:'غرفة جديدة',empty:'لا توجد غرف مباشرة. أنشئ أول غرفة.',roomName:'اسم الغرفة',category:'التصنيف',seats:'مقاعد المتحدثين',createRoom:'إنشاء الغرفة',cancel:'إلغاء',leave:'مغادرة',speakers:'المتحدثون',listeners:'المستمعون',chat:'الدردشة',msg:'اكتب رسالة',send:'إرسال',speak:'اطلب التحدث',requests:'طلبات التحدث',accept:'قبول',reject:'رفض',voiceSoon:'الصوت المباشر في المرحلة القادمة.',sent:'تم إرسال الطلب',c_music:'موسيقى',c_friendship:'صداقة',c_gaming:'ألعاب',c_discussion:'نقاش',c_other:'أخرى',nokey:'أضف مفتاح Supabase في index.html أولاً.'}
 };
-Object.assign(T.en,{priv:'Private room',pw:'Password',code:'Room ID',joinPriv:'Join private room',gift:'Send gift',to:'To',bal:'Coins',nogift:'No other member',gsent:'Gift sent'});
-Object.assign(T.fr,{priv:'Salon privé',pw:'Mot de passe',code:'ID du salon',joinPriv:'Rejoindre un salon privé',gift:'Envoyer un cadeau',to:'À',bal:'Pièces',nogift:'Aucun autre membre',gsent:'Cadeau envoyé'});
-Object.assign(T.ar,{priv:'غرفة خاصة',pw:'كلمة المرور',code:'رقم الغرفة',joinPriv:'دخول غرفة خاصة',gift:'إرسال هدية',to:'إلى',bal:'العملات',nogift:'لا يوجد عضو آخر',gsent:'تم إرسال الهدية'});
+Object.assign(T.en,{priv:'Private room',pw:'Password',code:'Room ID',joinPriv:'Join private room',gift:'Send gift',to:'To',bal:'Coins',nogift:'No other member',gsent:'Gift sent',newname:'New display name',gmsg:'sent',vjoin:'Join voice',vleave:'Leave voice',mic:'Mic',micoff:'Mic off',nomic:'Only speakers can use the mic'});
+Object.assign(T.fr,{priv:'Salon privé',pw:'Mot de passe',code:'ID du salon',joinPriv:'Rejoindre un salon privé',gift:'Envoyer un cadeau',to:'À',bal:'Pièces',nogift:'Aucun autre membre',gsent:'Cadeau envoyé',newname:'Nouveau nom affiché',gmsg:'a envoyé',vjoin:'Rejoindre la voix',vleave:'Quitter la voix',mic:'Micro',micoff:'Micro coupé',nomic:'Seuls les orateurs ont le micro'});
+Object.assign(T.ar,{priv:'غرفة خاصة',pw:'كلمة المرور',code:'رقم الغرفة',joinPriv:'دخول غرفة خاصة',gift:'إرسال هدية',to:'إلى',bal:'العملات',nogift:'لا يوجد عضو آخر',gsent:'تم إرسال الهدية',newname:'الاسم الجديد',gmsg:'أرسل',vjoin:'دخول الصوت',vleave:'خروج من الصوت',mic:'المايك',micoff:'إيقاف المايك',nomic:'المايك للمتحدثين فقط'});
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
@@ -71,9 +71,11 @@ let user = null, view = '', cur = null, members = [], names = {}, ch = null;
 
 function toast(m){ const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
-function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
-function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut(); }
-function cleanup(){ if(ch){ sb.removeChannel(ch); ch=null; } }
+function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
+function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
+  const nm=$('#nm'); if(nm) nm.onclick=async()=>{ const v=(prompt(t('newname'))||'').trim(); if(!v) return;
+    const {error}=await sb.from('profiles').update({display_name:v}).eq('id',user.id); if(error) return toast(error.message); names[user.id]=v; toast('✓ '+v); } }
+function cleanup(){ voiceLeave(); if(ch){ sb.removeChannel(ch); ch=null; } }
 
 function route(){
   if(!user){ cleanup(); view='auth'; return authView(); }
@@ -100,12 +102,16 @@ async function roomsView(){
   app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div id="list" class="c" style="padding:0"></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
   $('#pj').onclick=async()=>{ const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:+$('#pc').value,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); };
+  const draw=async(quiet)=>{
   const {data,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count').eq('is_live',true).order('participant_count',{ascending:false}).limit(30);
-  if(error) return toast(error.message);
+  if(error) return quiet?0:toast(error.message);
   const L=$('#list'); if(!L) return;
   if(!data.length){ L.innerHTML=`<p class="note">${t('empty')}</p>`; return; }
   L.innerHTML=data.map(r=>`<div class="card" tabindex="0" data-id="${r.id}"><div class="row"><b>${esc(r.name)}</b><span class="gold">● ${r.participant_count}/${r.capacity}</span></div><small>${t('c_'+r.category)} · #${r.public_id}</small></div>`).join('');
   L.querySelectorAll('.card').forEach(el=>{ const go=()=>join(data.find(x=>x.id===el.dataset.id)); el.onclick=go; el.onkeydown=e=>{if(e.key==='Enter')go()}; });
+  };
+  await draw(false);
+  clearInterval(window._rl); window._rl=setInterval(()=>{ if($('#list')) draw(true); else clearInterval(window._rl); },5000);
 }
 
 async function join(r){
@@ -135,22 +141,62 @@ async function openRoom(id){
   cur=r;
   app.innerHTML = hdr(true)+`<main class="c"><div class="row"><div><h2>${esc(r.name)}</h2><small id="cnt"></small></div><button class="sec" id="lv">${t('leave')}</button></div>
     <p class="note">🎙 ${t('voiceSoon')}</p><h3>${t('speakers')}</h3><div id="seats" class="seats"></div><div id="acts" class="c" style="padding:0"></div>
-    <div id="gf" class="c" style="padding:0"></div><h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat"></div>
+    <div id="vo" class="row"></div><div id="gf" class="c" style="padding:0"></div><h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat"></div>
     <div class="send"><input id="mi" placeholder="${t('msg')}" maxlength="500"><button class="pri" id="sd">${t('send')}</button></div></main>`;
   bindHdr();
   $('#lv').onclick=async()=>{ await sb.rpc('leave_room',{p_room:id}); cleanup(); cur=null; view='rooms'; roomsView(); };
   const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; $('#mi').value=''; const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error) toast(error.message); };
   $('#sd').onclick=send; $('#mi').onkeydown=e=>{ if(e.key==='Enter') send(); };
-  await loadMembers(); giftPanel();
+  await loadMembers(); giftPanel(); renderVoice();
   const {data:ms}=await sb.from('messages').select('id,sender_id,body').eq('room_id',id).order('created_at',{ascending:false}).limit(50);
   for(const m of (ms||[]).reverse()) await addMsg(m);
   ch=sb.channel('room-'+id)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'room_id=eq.'+id},p=>addMsg(p.new))
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'gift_events',filter:'room_id=eq.'+id},p=>addGift(p.new))
     .on('postgres_changes',{event:'*',schema:'public',table:'room_members',filter:'room_id=eq.'+id},()=>loadMembers())
     .on('postgres_changes',{event:'*',schema:'public',table:'speaker_requests',filter:'room_id=eq.'+id},()=>loadMembers())
     .subscribe();
 }
 
+const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+let vc=null,vpeers={},vstream=null,vjoined=false;
+function myRole(){ const m=members.find(x=>x.user_id===user.id); return m?m.role:'listener'; }
+function renderVoice(){ const v=$('#vo'); if(!v) return;
+  v.innerHTML=`<button class="sec" id="vj">${vjoined?'🔇 '+t('vleave'):'🎧 '+t('vjoin')}</button>${vjoined?`<button class="${vstream?'pri':'sec'}" id="vm">🎙 ${vstream?t('micoff'):t('mic')}</button>`:''}`;
+  $('#vj').onclick=()=>{ if(vjoined){ voiceLeave(); renderVoice(); } else voiceJoin(); };
+  const m=$('#vm'); if(m) m.onclick=micToggle; }
+function vsend(to,d){ vc&&vc.send({type:'broadcast',event:'sig',payload:{from:user.id,to,...d}}); }
+function drop(id){ const pc=vpeers[id]; if(pc){ try{pc.close();}catch(e){} delete vpeers[id]; } const a=document.getElementById('a'+id); if(a) a.remove(); }
+function mkPeer(id){ const pc=new RTCPeerConnection(ICE); vpeers[id]=pc; pc._q=[];
+  pc.onicecandidate=e=>{ if(e.candidate) vsend(id,{c:e.candidate}); };
+  pc.ontrack=e=>{ let a=document.getElementById('a'+id); if(!a){ a=document.createElement('audio'); a.id='a'+id; a.autoplay=true; a.setAttribute('playsinline',''); document.body.appendChild(a); }
+    a.srcObject=e.streams[0]||new MediaStream([e.track]); a.play().catch(()=>{}); };
+  pc.onconnectionstatechange=()=>{ if(pc.connectionState==='failed') drop(id); };
+  return pc; }
+function curTrack(){ return vstream?vstream.getAudioTracks()[0]:null; }
+async function vconnect(id){ const pc=mkPeer(id); const tr=pc.addTransceiver('audio',{direction:'sendrecv'}); if(curTrack()) tr.sender.replaceTrack(curTrack());
+  await pc.setLocalDescription(await pc.createOffer()); vsend(id,{d:pc.localDescription}); }
+async function onSig(p){ if(p.to!==user.id) return; let pc=vpeers[p.from];
+  if(p.d&&p.d.type==='offer'){ if(pc) drop(p.from); pc=mkPeer(p.from); await pc.setRemoteDescription(p.d);
+    const tr=pc.getTransceivers()[0]; tr.direction='sendrecv'; if(curTrack()) tr.sender.replaceTrack(curTrack());
+    pc._q.forEach(c=>pc.addIceCandidate(c).catch(()=>{})); pc._q=[];
+    await pc.setLocalDescription(await pc.createAnswer()); vsend(p.from,{d:pc.localDescription}); }
+  else if(p.d&&pc){ await pc.setRemoteDescription(p.d); pc._q.forEach(c=>pc.addIceCandidate(c).catch(()=>{})); pc._q=[]; }
+  else if(p.c&&pc){ if(pc.remoteDescription) pc.addIceCandidate(p.c).catch(()=>{}); else pc._q.push(p.c); } }
+function voiceJoin(){ if(vjoined||!cur) return; vjoined=true;
+  vc=sb.channel('voice-'+cur.id,{config:{presence:{key:user.id},broadcast:{self:false}}});
+  vc.on('broadcast',{event:'sig'},({payload})=>onSig(payload))
+    .on('presence',{event:'sync'},()=>{ const ids=Object.keys(vc.presenceState());
+      ids.forEach(id=>{ if(id!==user.id&&!vpeers[id]&&user.id<id) vconnect(id); });
+      Object.keys(vpeers).forEach(id=>{ if(!ids.includes(id)) drop(id); }); })
+    .subscribe(st=>{ if(st==='SUBSCRIBED') vc.track({on:1}); });
+  renderVoice(); }
+async function micToggle(){ if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(null))); }
+  else { if(myRole()==='listener') return toast(t('nomic'));
+    try{ vstream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ return toast(e.message); }
+    Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(curTrack()))); }
+  renderVoice(); }
+function voiceLeave(){ Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; }
 let giftList=[];
 async function giftPanel(){
   const g=$('#gf'); if(!g) return;
@@ -168,6 +214,12 @@ function fillRecv(){ const r=$('#gr'); if(!r) return; const v=r.value;
 async function nameOf(id){
   if(!names[id]){ const {data}=await sb.from('profiles').select('display_name').eq('id',id).single(); names[id]=data?.display_name||'?'; }
   return names[id];
+}
+async function addGift(e){
+  const box=$('#chat'); if(!box) return; const [a,b]=await Promise.all([nameOf(e.sender_id),nameOf(e.receiver_id)]);
+  const g=giftList.find(x=>x.id===e.gift_id); const gn=g?(g.name[lang]||g.name.en):'🎁';
+  const d=document.createElement('div'); d.className='m gold'; d.textContent=`🎁 ${a} ${t('gmsg')} ${gn} ×${e.quantity} → ${b}`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
 }
 async function addMsg(m){
   const box=$('#chat'); if(!box) return; const n=await nameOf(m.sender_id);
