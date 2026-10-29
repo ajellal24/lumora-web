@@ -117,7 +117,27 @@ Object.assign(T.ar,{rep:'إبلاغ',repAsk:'سبب الإبلاغ',repSent:'ت�
 Object.assign(T.en,{adm:'Admin',reps:'Reports',bans:'Banned users',unban:'Unban',norep:'Nothing here',unbanned:'Ban removed',inv:'Invite to room',invSent:'Invitation sent',invJoin:'Join room',by:'by',inRoom:'room'});
 Object.assign(T.fr,{adm:'Admin',reps:'Signalements',bans:'Utilisateurs bannis',unban:'Débannir',norep:'Rien ici',unbanned:'Bannissement levé',inv:'Inviter au salon',invSent:'Invitation envoyée',invJoin:'Rejoindre le salon',by:'par',inRoom:'salon'});
 Object.assign(T.ar,{adm:'الإدارة',reps:'البلاغات',bans:'المحظورون',unban:'رفع الحظر',norep:'لا شيء هنا',unbanned:'تم رفع الحظر',inv:'دعوة للغرفة',invSent:'تم إرسال الدعوة',invJoin:'دخول الغرفة',by:'من',inRoom:'الغرفة'});
+Object.assign(T.en,{wal:'Wallet',gsentH:'Sent',grecvH:'Received'});
+Object.assign(T.fr,{wal:'Portefeuille',gsentH:'Envoyés',grecvH:'Reçus'});
+Object.assign(T.ar,{wal:'المحفظة',gsentH:'المرسلة',grecvH:'المستلمة'});
 let isAdm=null;
+async function walletView(){
+  if(cur){ cur._leaving=true; await sb.rpc('leave_room',{p_room:cur.id}); cleanup(); cur=null; }
+  view='wallet';
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>🪙 ${t('wal')}</h2></div><div class="card"><small>${t('bal')}</small><b class="gold" style="font-size:32px" id="wb">…</b></div><h3>🎁</h3><div id="wh" class="c" style="padding:0"></div></main>`;
+  bindHdr(); $('#bk').onclick=()=>{ view='rooms'; roomsView(); };
+  const [{data:w},{data:ev,error},{data:gs}]=await Promise.all([
+    sb.from('wallets').select('balance').eq('user_id',user.id).maybeSingle(),
+    sb.from('gift_events').select('sender_id,receiver_id,gift_id,quantity,created_at').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at',{ascending:false}).limit(30),
+    sb.from('gifts').select('id,code,name')]);
+  if($('#wb')) $('#wb').textContent=w?w.balance:0;
+  if(error) return toast(error.message);
+  const gm={}; (gs||[]).forEach(g=>gm[g.id]=g);
+  await Promise.all([...new Set((ev||[]).flatMap(e=>[e.sender_id,e.receiver_id]))].map(nameOf));
+  const L=$('#wh'); if(!L) return;
+  L.innerHTML=(ev||[]).length?ev.map(e=>{ const g=gm[e.gift_id], out=e.sender_id===user.id, o=out?e.receiver_id:e.sender_id;
+    return `<div class="card"><div class="row"><span>${gEmoji(g)} ${esc(g?(g.name[lang]||g.name.en):'')} ×${e.quantity}</span><small class="${out?'':'gold'}">${out?'→ ':'← '}${esc(names[o]||'?')}</small></div><small>${out?t('gsentH'):t('grecvH')} · ${new Date(e.created_at).toLocaleString()}</small></div>`; }).join(''):`<p class="note">${t('nodm')}</p>`;
+}
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
@@ -170,10 +190,11 @@ function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.
 function shrink(f,n){ return new Promise((ok,no)=>{ const u=URL.createObjectURL(f), im=new Image(); im.onload=()=>{ const s=Math.min(im.width,im.height), c=document.createElement('canvas'); c.width=c.height=n; c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,n,n); URL.revokeObjectURL(u); c.toBlob(b=>b?ok(b):no(new Error('image')),'image/jpeg',.85); }; im.onerror=()=>no(new Error('image')); im.src=u; }); }
 function toast(m){ const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
-function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="ad" hidden>🛡</button><button class="ghost" id="ib">✉<span id="ubd" class="gold"></span></button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
+function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="wl">🪙</button><button class="ghost" id="ad" hidden>🛡</button><button class="ghost" id="ib">✉<span id="ubd" class="gold"></span></button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
 function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
   const ib=$('#ib'); if(ib) ib.onclick=()=>{ cleanup(); cur=null; view='inbox'; inboxView(); };
   const nm=$('#nm'); if(nm) nm.onclick=profileView; refreshUnread();
+  const wl=$('#wl'); if(wl) wl.onclick=walletView;
   const ad=$('#ad'); if(ad){ const show=()=>{ ad.hidden=!isAdm; ad.onclick=()=>{ cleanup(); cur=null; view='admin'; adminView(); }; };
     if(isAdm===null) sb.rpc('is_admin').then(({data})=>{ isAdm=data===true; show(); }); else show(); } }
 async function adminView(){
