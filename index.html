@@ -42,6 +42,9 @@ small,.note{color:var(--tx2)}
 .send{display:flex;gap:8px}.send input{flex:1}
 #toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));inset-inline:16px;background:var(--vi);padding:12px;border-radius:12px;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
 #toast.show{opacity:1}
+@keyframes fl{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-55vh) scale(1.6);opacity:0}}
+.fly{position:fixed;bottom:18vh;font-size:44px;pointer-events:none;z-index:50;animation:fl 2.4s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.fly{animation-duration:.01s}}
 </style>
 </head>
 <body>
@@ -220,6 +223,8 @@ async function addGift(e){
   const g=giftList.find(x=>x.id===e.gift_id); const gn=g?(g.name[lang]||g.name.en):'🎁';
   const d=document.createElement('div'); d.className='m gold'; d.textContent=`🎁 ${a} ${t('gmsg')} ${gn} ×${e.quantity} → ${b}`;
   box.appendChild(d); box.scrollTop=box.scrollHeight;
+  const f=document.createElement('div'); f.className='fly'; f.textContent=(g&&g.code&&/^\p{Extended_Pictographic}/u.test(g.name.en))?'':'🎁'; f.textContent=f.textContent||'🎁';
+  f.style.left=(10+Math.random()*75)+'vw'; document.body.appendChild(f); setTimeout(()=>f.remove(),2600);
 }
 async function addMsg(m){
   const box=$('#chat'); if(!box) return; const n=await nameOf(m.sender_id);
