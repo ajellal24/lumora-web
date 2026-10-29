@@ -111,6 +111,9 @@ Object.assign(T.ar,{promote:'تعيين مشرف',unmod:'إزالة الإشرا
 Object.assign(T.en,{srch:'Search name or ID',allc:'All',follow:'Follow',unfollow:'Unfollow',fon:'Following now',foff:'Unfollowed',dm:'Messages',fing:'Following',convs:'Conversations',nodm:'Nothing yet'});
 Object.assign(T.fr,{srch:'Nom ou ID du salon',allc:'Toutes',follow:'Suivre',unfollow:'Ne plus suivre',fon:'Vous suivez',foff:'Vous ne suivez plus',dm:'Messages',fing:'Abonnements',convs:'Conversations',nodm:'Rien pour le moment'});
 Object.assign(T.ar,{srch:'ابحث بالاسم أو الرقم',allc:'الكل',follow:'متابعة',unfollow:'إلغاء المتابعة',fon:'تمت المتابعة',foff:'تم إلغاء المتابعة',dm:'الرسائل',fing:'المتابَعون',convs:'المحادثات',nodm:'لا شيء بعد'});
+Object.assign(T.en,{rep:'Report',repAsk:'Reason for the report',repSent:'Report sent',ban:'Ban from room',banAsk:'Ban this user from the room?',banned:'User banned',nowLive:'opened a room',readMark:'Read',typing:'…'});
+Object.assign(T.fr,{rep:'Signaler',repAsk:'Motif du signalement',repSent:'Signalement envoyé',ban:'Bannir du salon',banAsk:'Bannir cet utilisateur du salon ?',banned:'Utilisateur banni',nowLive:'a ouvert un salon',readMark:'Lu',typing:'…'});
+Object.assign(T.ar,{rep:'إبلاغ',repAsk:'سبب الإبلاغ',repSent:'تم إرسال البلاغ',ban:'منع من دخول الغرفة',banAsk:'منع هذا المستخدم من دخول الغرفة؟',banned:'تم منع المستخدم',nowLive:'فتح غرفة',readMark:'مقروء',typing:'…'});
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
@@ -133,12 +136,14 @@ async function userSheet(uid){ closeSheet();
   if(canMod(uid)){
     if(tg.seat_index!=null) ac+=`<button class="sec" data-k="mute">${tg.muted?'🔊 '+t('unmute'):'🔇 '+t('mute')}</button><button class="sec" data-k="demote">⬇ ${t('demote')}</button>`;
     if(rank(me.role)>=4) ac+=`<button class="sec" data-k="${tg.role==='moderator'?'unmod':'promote'}">🛡 ${tg.role==='moderator'?t('unmod'):t('promote')}</button>`;
-    ac+=`<button class="sec dng" data-k="kick">🚫 ${t('kick')}</button>`;
+    ac+=`<button class="sec dng" data-k="kick">🚫 ${t('kick')}</button><button class="sec dng" data-k="ban">⛔ ${t('ban')}</button>`;
   }
-  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k; closeSheet(); if(k==='x') return;
     if(k==='fol'){ const on=b.dataset.f==='1'; const r0=on?await sb.from('follow_links').delete().eq('follower',user.id).eq('followed',uid):await sb.from('follow_links').insert({follower:user.id,followed:uid}); return toast(r0.error?r0.error.message:t(on?'foff':'fon')); }
     if(k==='dm'){ return dmView(uid); }
+    if(k==='rep'){ const why=(prompt(t('repAsk'))||'').trim().slice(0,500); if(!why) return; const {error}=await sb.from('reports').insert({reporter:user.id,reported:uid,room_id:cur?cur.id:null,reason:why}); return toast(error?error.message:t('repSent')); }
+    if(k==='ban'){ if(!confirm(t('banAsk'))) return; const {error}=await sb.rpc('ban_member',{p_room:cur.id,p_user:uid}); toast(error?error.message:t('banned')); return loadMembers(); }
     const a={room:cur.id}; let r;
     if(k==='mute') r=await sb.rpc('set_member_muted',{p_room:cur.id,p_user:uid,p_muted:!tg.muted});
     else if(k==='demote') r=await sb.rpc('demote_member',{p_room:cur.id,p_user:uid});
@@ -160,10 +165,17 @@ function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.
 function shrink(f,n){ return new Promise((ok,no)=>{ const u=URL.createObjectURL(f), im=new Image(); im.onload=()=>{ const s=Math.min(im.width,im.height), c=document.createElement('canvas'); c.width=c.height=n; c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,n,n); URL.revokeObjectURL(u); c.toBlob(b=>b?ok(b):no(new Error('image')),'image/jpeg',.85); }; im.onerror=()=>no(new Error('image')); im.src=u; }); }
 function toast(m){ const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
-function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="ib">✉</button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
+function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="ib">✉<span id="ubd" class="gold"></span></button><button class="ghost" id="nm">✎</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>`; }
 function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
   const ib=$('#ib'); if(ib) ib.onclick=()=>{ cleanup(); cur=null; view='inbox'; inboxView(); };
-  const nm=$('#nm'); if(nm) nm.onclick=profileView; }
+  const nm=$('#nm'); if(nm) nm.onclick=profileView; refreshUnread(); }
+async function refreshUnread(){ if(!user||!$('#ubd')) return; try{ const {data,error}=await sb.rpc('unread_dm_count'); if(error) return; let n=data; if(Array.isArray(n)) n=n[0]; if(n&&typeof n==='object') n=Object.values(n)[0]; n=+n||0; const e=$('#ubd'); if(e) e.textContent=n>0?' '+n:''; }catch(e){} }
+let nch=null;
+function startNotifs(){ if(nch||!user) return; nch=sb.channel('notif-'+user.id)
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+user.id},async p=>{ const n=await nameOf(p.new.actor_id); toast('🔔 '+n+' '+t('nowLive')+(p.new.room_name?': '+p.new.room_name:'')); if(view==='rooms') roomsView(); })
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},()=>{ if(view!=='dm') refreshUnread(); })
+  .subscribe(); }
+function stopNotifs(){ if(nch){ sb.removeChannel(nch); nch=null; } }
 function cleanup(){ if(dch){ sb.removeChannel(dch); dch=null; } closeSheet(); voiceLeave(); if(ch){ sb.removeChannel(ch); ch=null; } }
 
 function route(){
@@ -399,7 +411,7 @@ async function loadMembers(){
   acts.querySelectorAll('button[data-id]').forEach(b=>b.onclick=async()=>{ const {error}=await sb.rpc('resolve_speaker_request',{p_request:b.dataset.id,p_accept:b.dataset.a==='1'}); if(error) toast(error.message); loadMembers(); });
 }
 
-sb.auth.onAuthStateChange((_e,s)=>{ const u=s?.user||null; if(u?.id===user?.id && view) return; user=u; setTimeout(route,0); });
+sb.auth.onAuthStateChange((_e,s)=>{ const u=s?.user||null; if(u?.id===user?.id && view) return; user=u; if(u) startNotifs(); else stopNotifs(); setTimeout(route,0); });
 document.documentElement.dir = lang==='ar'?'rtl':'ltr';
 
 async function inboxView(){
@@ -421,7 +433,8 @@ async function dmView(uid){
   $('#bk').onclick=()=>{ if(dch){ sb.removeChannel(dch); dch=null; } view='inbox'; inboxView(); };
   const {data}=await sb.from('dms').select('sender_id,body').or(`and(sender_id.eq.${user.id},receiver_id.eq.${uid}),and(sender_id.eq.${uid},receiver_id.eq.${user.id})`).order('created_at',{ascending:false}).limit(50);
   (data||[]).reverse().forEach(add);
-  dch=sb.channel('dm-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},p=>{ if(p.new.sender_id===uid) add(p.new); }).subscribe();
+  sb.rpc('mark_dm_read',{p_peer:uid}).then(()=>refreshUnread());
+  dch=sb.channel('dm-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},p=>{ if(p.new.sender_id===uid){ add(p.new); sb.rpc('mark_dm_read',{p_peer:uid}); } }).subscribe();
   const send=async()=>{ const b=$('#di').value.trim(); if(!b) return; $('#di').value=''; const {error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:b}); if(error) toast(error.message); else add({sender_id:user.id,body:b}); };
   $('#ds').onclick=send; $('#di').onkeydown=e=>{ if(e.key==='Enter') send(); };
 }
