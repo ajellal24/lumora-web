@@ -70,6 +70,8 @@ button{transition:transform .12s,filter .12s}button:active{transform:scale(.96)}
 .seat{min-width:0}.seat[data-u],.chip[data-u]{cursor:pointer}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 4px}
 .chip[data-u]{border:1px solid var(--ol)}
+.lv{font-size:11px;color:var(--gold);margin-inline-start:2px}
+#pin{border-inline-start:3px solid var(--gold)}
 .av.xs{width:22px;height:22px;font-size:11px;margin:0;box-shadow:none}
 .av.sm{width:40px;height:40px;font-size:16px;margin:0}
 .av.pfp{width:112px;height:112px;font-size:44px;margin:4px auto}.av.pfp.emo{font-size:56px}
@@ -120,6 +122,30 @@ Object.assign(T.ar,{adm:'الإدارة',reps:'البلاغات',bans:'المح�
 Object.assign(T.en,{wal:'Wallet',gsentH:'Sent',grecvH:'Received'});
 Object.assign(T.fr,{wal:'Portefeuille',gsentH:'Envoyés',grecvH:'Reçus'});
 Object.assign(T.ar,{wal:'المحفظة',gsentH:'المرسلة',grecvH:'المستلمة'});
+Object.assign(T.en,{grant:'Add coins',srchU:'Search user name',granted:'Coins updated',amt:'Amount (negative to remove)'});
+Object.assign(T.fr,{grant:'Ajouter des pièces',srchU:'Nom de l’utilisateur',granted:'Pièces mises à jour',amt:'Montant (négatif pour retirer)'});
+Object.assign(T.ar,{grant:'شحن العملات',srchU:'ابحث باسم المستخدم',granted:'تم تحديث العملات',amt:'المبلغ (سالب للخصم)'});
+Object.assign(T.en,{blk:'Block user',unblk:'Unblock',blkd:'User blocked',unblkd:'Block removed',blkL:'Blocked users'});
+Object.assign(T.fr,{blk:'Bloquer',unblk:'Débloquer',blkd:'Utilisateur bloqué',unblkd:'Blocage retiré',blkL:'Utilisateurs bloqués'});
+Object.assign(T.ar,{blk:'حظر المستخدم',unblk:'إلغاء الحظر',blkd:'تم حظر المستخدم',unblkd:'تم إلغاء الحظر',blkL:'المحظورون'});
+Object.assign(T.en,{pinPh:'Pinned message (empty to remove)',slow:'Slow mode',off:'off',slowErr:'Slow mode: wait before sending again',dupErr:'Duplicate message',copied:'Link copied'});
+Object.assign(T.fr,{pinPh:'Message épinglé (vide pour retirer)',slow:'Mode lent',off:'désactivé',slowErr:'Mode lent : attendez avant de renvoyer',dupErr:'Message en double',copied:'Lien copié'});
+Object.assign(T.ar,{pinPh:'رسالة مثبتة (اتركها فارغة للحذف)',slow:'الوضع البطيء',off:'متوقف',slowErr:'الوضع البطيء: انتظر قبل الإرسال',dupErr:'رسالة مكررة',copied:'تم نسخ الرابط'});
+let pendingRoom=null; try{ const q=new URLSearchParams(location.search).get('room'); if(q&&/^\d+$/.test(q)){ pendingRoom=q; sessionStorage.setItem('pr',q); } else pendingRoom=sessionStorage.getItem('pr'); }catch(e){}
+const lvls={};
+function lvb(u){ const l=lvls[u]; return l?` <span class="lv">${l>=30?'💎':l>=15?'🥇':l>=5?'⭐':'🔹'}${l}</span>`:''; }
+function paintMeta(){ if(!cur) return; const p=$('#pin'); if(p){ p.hidden=!cur.pinned; p.textContent='📌 '+(cur.pinned||''); } const s=$('#slwi'); if(s) s.textContent=cur.slow_seconds?' · 🐢 '+cur.slow_seconds+'s':''; const h=document.querySelector('main h2'); if(h&&cur.name) h.textContent=cur.name; }
+function roomSettings2(){ closeSheet(); const me=members.find(x=>x.user_id===user.id), own=!!(me&&me.role==='owner'); const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
+  d.innerHTML=`<div class="sh"><b>⚙ ${t('stg')}</b>${own?`<input id="rnm" maxlength="60" value="${esc(cur.name)}">`:''}<textarea id="pnt" maxlength="200" rows="2" placeholder="📌 ${t('pinPh')}">${esc(cur.pinned||'')}</textarea><select id="slw" aria-label="${t('slow')}">${[0,5,10,30,60].map(n=>`<option value="${n}"${(cur.slow_seconds||0)===n?' selected':''}>🐢 ${t('slow')}: ${n?n+'s':t('off')}</option>`).join('')}</select><button class="pri" data-k="save">${t('pfsave')}</button>${own?`<button class="sec dng" data-k="close">🚪 ${t('closeRoom')}</button>`:''}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k;
+    if(k==='x') return closeSheet();
+    if(k==='save'){ const pin=$('#pnt').value.trim(), sl=+$('#slw').value;
+      if(own){ const n=$('#rnm').value.trim(); if(n&&n!==cur.name){ const {error}=await sb.rpc('rename_room',{p_room:cur.id,p_name:n}); if(error) return toast(error.message); cur.name=n; } }
+      let r=await sb.rpc('set_room_pin',{p_room:cur.id,p_text:pin}); if(r.error) return toast(r.error.message);
+      r=await sb.rpc('set_slow_mode',{p_room:cur.id,p_seconds:sl}); if(r.error) return toast(r.error.message);
+      cur.pinned=pin||null; cur.slow_seconds=sl; paintMeta(); closeSheet(); return toast(t('saved')); }
+    if(k==='close'){ if(!confirm(t('closeAsk'))) return; closeSheet(); const {error}=await sb.rpc('close_room',{p_room:cur.id}); if(error) toast(error.message); loadMembers(); } };
+  document.body.appendChild(d); }
 let isAdm=null;
 async function walletView(){
   if(cur){ cur._leaving=true; await sb.rpc('leave_room',{p_room:cur.id}); cleanup(); cur=null; }
@@ -162,11 +188,12 @@ async function userSheet(uid){ closeSheet();
     if(rank(me.role)>=4) ac+=`<button class="sec" data-k="${tg.role==='moderator'?'unmod':'promote'}">🛡 ${tg.role==='moderator'?t('unmod'):t('promote')}</button>`;
     ac+=`<button class="sec dng" data-k="kick">🚫 ${t('kick')}</button><button class="sec dng" data-k="ban">⛔ ${t('ban')}</button>`;
   }
-  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec" data-k="inv">🎟 ${t('inv')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec" data-k="inv">🎟 ${t('inv')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button><button class="sec dng" data-k="blk" id="bb2">⛔ ${t('blk')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k; closeSheet(); if(k==='x') return;
     if(k==='fol'){ const on=b.dataset.f==='1'; const r0=on?await sb.from('follow_links').delete().eq('follower',user.id).eq('followed',uid):await sb.from('follow_links').insert({follower:user.id,followed:uid}); return toast(r0.error?r0.error.message:t(on?'foff':'fon')); }
     if(k==='dm'){ return dmView(uid); }
     if(k==='inv'){ const {error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:'🎟 '+cur.name+' [[room:'+cur.id+']]'}); return toast(error?error.message:t('invSent')); }
+    if(k==='blk'){ const on=b.dataset.b==='1'; const {error}=await sb.rpc(on?'unblock_user':'block_user',{p_user:uid}); return toast(error?error.message:t(on?'unblkd':'blkd')); }
     if(k==='rep'){ const why=(prompt(t('repAsk'))||'').trim().slice(0,500); if(!why) return; const {error}=await sb.from('reports').insert({reporter:user.id,reported:uid,room_id:cur?cur.id:null,reason:why}); return toast(error?error.message:t('repSent')); }
     if(k==='ban'){ if(!confirm(t('banAsk'))) return; const {error}=await sb.rpc('ban_member',{p_room:cur.id,p_user:uid}); toast(error?error.message:t('banned')); return loadMembers(); }
     const a={room:cur.id}; let r;
@@ -179,6 +206,7 @@ async function userSheet(uid){ closeSheet();
   const [{data:p},{data:lv}]=await Promise.all([sb.from('profiles').select('bio').eq('id',uid).maybeSingle(),sb.from('user_levels').select('level,popularity_points').eq('user_id',uid).maybeSingle()]);
   if(document.getElementById('sheet')!==d) return;
   if(uid!==user.id){ const {data:f}=await sb.from('follow_links').select('followed').eq('follower',user.id).eq('followed',uid).maybeSingle(); const fb=$('#fb'); if(fb){ fb.dataset.f=f?'1':'0'; fb.textContent=f?'✓ '+t('unfollow'):'＋ '+t('follow'); } }
+  if(uid!==user.id){ const {data:bk}=await sb.from('lumora_blocks').select('blocked').eq('blocker',user.id).eq('blocked',uid).maybeSingle(); const bb=$('#bb2'); if(bb){ bb.dataset.b=bk?'1':'0'; bb.textContent='⛔ '+t(bk?'unblk':'blk'); } }
   $('#ub').textContent=(p&&p.bio)||t('noBio'); $('#ul').textContent=lv?t('lvl')+' '+lv.level+' · '+lv.popularity_points+' ★':''; }
 function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
   d.innerHTML=`<div class="sh"><b>⚙ ${t('stg')}</b><input id="rnm" maxlength="60" value="${esc(cur.name)}"><button class="pri" data-k="save">${t('pfsave')}</button><button class="sec dng" data-k="close">🚪 ${t('closeRoom')}</button><button class="ghost" data-k="x">${t('close')}</button></div>`;
@@ -198,8 +226,12 @@ function bindHdr(){ $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.v
   const ad=$('#ad'); if(ad){ const show=()=>{ ad.hidden=!isAdm; ad.onclick=()=>{ cleanup(); cur=null; view='admin'; adminView(); }; };
     if(isAdm===null) sb.rpc('is_admin').then(({data})=>{ isAdm=data===true; show(); }); else show(); } }
 async function adminView(){
-  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>🛡 ${t('adm')}</h2></div><h3>${t('reps')}</h3><div id="ar" class="c" style="padding:0"></div><h3>${t('bans')}</h3><div id="ab" class="c" style="padding:0"></div></main>`;
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>🛡 ${t('adm')}</h2></div><h3>🪙 ${t('grant')}</h3><div class="send"><input id="gu" placeholder="${t('srchU')}" maxlength="40"><button class="sec" id="gsr">🔍</button></div><div id="gl" class="c" style="padding:0"></div><h3>${t('reps')}</h3><div id="ar" class="c" style="padding:0"></div><h3>${t('bans')}</h3><div id="ab" class="c" style="padding:0"></div></main>`;
   bindHdr(); $('#bk').onclick=()=>{ view='rooms'; roomsView(); };
+  const gsrch=async()=>{ const q=$('#gu').value.trim().replace(/[%,()]/g,''); if(!q) return; const {data,error}=await sb.from('profiles').select('id,display_name').ilike('display_name',q+'%').limit(6); if(error) return toast(error.message);
+    const G=$('#gl'); G.innerHTML=(data||[]).length?data.map(p=>`<div class="card" data-id="${p.id}"><b>${esc(p.display_name||'?')}</b></div>`).join(''):`<p class="note">${t('norep')}</p>`;
+    G.querySelectorAll('.card').forEach(c=>c.onclick=async()=>{ const a=parseInt(prompt(t('amt')),10); if(!a) return; const {data:nb,error:e}=await sb.rpc('admin_grant_coins',{p_user:c.dataset.id,p_amount:a}); toast(e?e.message:t('granted')+': '+nb); }); };
+  $('#gsr').onclick=gsrch; $('#gu').onkeydown=e=>{ if(e.key==='Enter') gsrch(); };
   const [{data:rp,error:e1},{data:bn,error:e2}]=await Promise.all([sb.rpc('admin_list_reports'),sb.rpc('admin_list_bans')]);
   if(e1||e2) return toast((e1||e2).message);
   const L1=$('#ar'), L2=$('#ab'); if(!L1) return;
@@ -218,6 +250,8 @@ function cleanup(){ if(dch){ sb.removeChannel(dch); dch=null; } closeSheet(); vo
 
 function route(){
   if(!user){ cleanup(); view='auth'; return authView(); }
+  if(pendingRoom){ const pr=pendingRoom; pendingRoom=null; try{ sessionStorage.removeItem('pr'); history.replaceState(null,'',location.pathname); }catch(e){}
+    return sb.rpc('join_room_by_code',{p_public_id:+pr,p_password:null}).then(({data,error})=>{ if(error){ toast(error.message); view='rooms'; return roomsView(); } cur={id:data}; view='room'; openRoom(data); }); }
   if(view==='room' && cur) return openRoom(cur.id);
   if(view==='create') return createView();
   if(view==='inbox') return inboxView();
@@ -283,13 +317,15 @@ async function openRoom(id){
   const {data:r,error}=await sb.from('rooms').select('*').eq('id',id).single();
   if(error||!r){ view='rooms'; cur=null; return roomsView(); }
   cur=r;
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><div><h2>${esc(r.name)}</h2><small id="cnt"></small></div><span style="display:flex;gap:6px"><button class="sec" id="st" hidden>⚙</button><button class="sec" id="lv">${t('leave')}</button></span></div>
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><div><h2>${esc(r.name)}</h2><small><span id="cnt"></span><span id="slwi"></span></small></div><span style="display:flex;gap:6px"><button class="sec" id="sh"${r.is_private?' hidden':''}>🔗</button><button class="sec" id="st" hidden>⚙</button><button class="sec" id="lv">${t('leave')}</button></span></div><div id="pin" class="note" hidden></div>
     <h3>${t('speakers')}</h3><div id="seats" class="seats"></div><div id="acts" class="c" style="padding:0"></div>
     <div id="vo" class="row"></div><div id="gf" class="c" style="padding:0"></div><h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat"></div><div class="ems" id="rx">${RX.map(x=>`<button class="sec" data-r="${x}">${x}</button>`).join('')}</div>
     <div class="send"><input id="mi" placeholder="${t('msg')}" maxlength="500"><button class="pri" id="sd">${t('send')}</button></div></main>`;
   bindHdr();
   $('#lv').onclick=async()=>{ cur._leaving=true; await sb.rpc('leave_room',{p_room:id}); cleanup(); cur=null; view='rooms'; roomsView(); };
-  const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; $('#mi').value=''; const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error) toast(error.message); };
+  paintMeta();
+  $('#sh').onclick=async()=>{ const u=location.origin+location.pathname+'?room='+r.public_id; try{ if(navigator.share) await navigator.share({title:r.name,url:u}); else { await navigator.clipboard.writeText(u); toast(t('copied')); } }catch(e){ if(e&&e.name==='AbortError') return; try{ await navigator.clipboard.writeText(u); toast(t('copied')); }catch(_){ prompt('',u); } } };
+  const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; $('#mi').value=''; const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error){ $('#mi').value=b; toast(/slow/i.test(error.message)?t('slowErr'):/duplicate/i.test(error.message)?t('dupErr'):error.message); } };
   $('#sd').onclick=send; $('#mi').onkeydown=e=>{ if(e.key==='Enter') send(); };
   let rl=0; $('#rx').querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(Date.now()-rl<400||!ch) return; rl=Date.now(); ch.send({type:'broadcast',event:'react',payload:{e:b.dataset.r}}); });
   await loadMembers(); giftPanel(); renderVoice();
@@ -300,6 +336,7 @@ async function openRoom(id){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'gift_events',filter:'room_id=eq.'+id},p=>addGift(p.new))
     .on('postgres_changes',{event:'*',schema:'public',table:'room_members',filter:'room_id=eq.'+id},()=>loadMembers())
     .on('postgres_changes',{event:'*',schema:'public',table:'speaker_requests',filter:'room_id=eq.'+id},()=>loadMembers())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rooms',filter:'id=eq.'+id},p=>{ if(!cur||!p.new) return; cur.pinned=p.new.pinned; cur.slow_seconds=p.new.slow_seconds; if(p.new.name) cur.name=p.new.name; paintMeta(); })
     .on('broadcast',{event:'react'},({payload})=>flyEmoji(payload&&payload.e))
     .subscribe();
 }
@@ -419,7 +456,7 @@ async function addGift(e){
 }
 async function addMsg(m){
   const box=$('#chat'); if(!box) return; const n=await nameOf(m.sender_id);
-  const d=document.createElement('div'); d.className='m'+(m.sender_id===user.id?' me':''); d.innerHTML=`<b>${esc(n)}</b> ${esc(m.body)}`;
+  const d=document.createElement('div'); d.className='m'+(m.sender_id===user.id?' me':''); d.innerHTML=`<b>${esc(n)}</b>${lvb(m.sender_id)} ${esc(m.body)}`;
   box.appendChild(d); box.scrollTop=box.scrollHeight;
 }
 
@@ -427,16 +464,17 @@ async function loadMembers(){
   if(!cur) return;
   const {data}=await sb.from('room_members').select('user_id,role,seat_index,muted,profiles(display_name,avatar_url)').eq('room_id',cur.id).is('left_at',null);
   members=data||[]; members.forEach(m=>{names[m.user_id]=m.profiles?.display_name||'?'; const a=m.profiles?.avatar_url; avs[m.user_id]=a||'';});
+  try{ const need=members.map(m=>m.user_id).filter(u=>!(u in lvls)); if(need.length){ need.forEach(u=>lvls[u]=0); const {data:lv}=await sb.from('user_levels').select('user_id,level').in('user_id',need); (lv||[]).forEach(x=>lvls[x.user_id]=x.level); } }catch(e){}
   if(!$('#seats')||!cur) return;
   const me=members.find(m=>m.user_id===user.id);
   if(me) cur._in=true; else if(cur._in){ if(cur._leaving) return; cur._leaving=true; const {data:rr}=await sb.from('rooms').select('is_live').eq('id',cur.id).maybeSingle(); toast(t(rr&&rr.is_live===false?'closed':'removed')); cleanup(); cur=null; view='rooms'; roomsView(); return; }
   if(me&&vstream&&(me.muted||me.seat_index==null)){ micToggle(); if(me.muted) toast(t('mutedYou')); }
-  const st=$('#st'); if(st){ st.hidden=!(me&&me.role==='owner'); st.onclick=roomSettings; }
+  const st=$('#st'); if(st){ st.hidden=!(me&&rank(me.role)>=3); st.onclick=roomSettings2; }
   fillRecv(); $('#cnt').textContent=`${members.length}/${cur.capacity}`;
   let s=''; for(let i=0;i<cur.seat_count;i++){ const m=members.find(x=>x.seat_index===i);
-    s+= m ? `<div class="seat" ${m.user_id!==user.id?`data-u="${m.user_id}"`:''}><div class="avw"><div class="av ${m.role==='owner'?'own':''} ${avCls(m.user_id)}" data-uid="${m.user_id}">${avInner(m.user_id)}</div>${m.muted?'<span class="mu">🔇</span>':''}${m.role==='owner'?'<span class="cr">👑</span>':''}</div><small>${m.role==='moderator'||m.role==='admin'?'🛡 ':''}${esc(names[m.user_id])}</small></div>` : `<div class="seat"><div class="avw"><div class="av empty">+</div></div></div>`; }
+    s+= m ? `<div class="seat" ${m.user_id!==user.id?`data-u="${m.user_id}"`:''}><div class="avw"><div class="av ${m.role==='owner'?'own':''} ${avCls(m.user_id)}" data-uid="${m.user_id}">${avInner(m.user_id)}</div>${m.muted?'<span class="mu">🔇</span>':''}${m.role==='owner'?'<span class="cr">👑</span>':''}</div><small>${m.role==='moderator'||m.role==='admin'?'🛡 ':''}${esc(names[m.user_id])}${lvb(m.user_id)}</small></div>` : `<div class="seat"><div class="avw"><div class="av empty">+</div></div></div>`; }
   $('#seats').innerHTML=s;
-  $('#lis').innerHTML=members.filter(m=>m.seat_index==null).map(m=>`<span class="chip" ${m.user_id!==user.id?`data-u="${m.user_id}"`:''}><span class="av xs ${avCls(m.user_id)}">${avInner(m.user_id)}</span>${esc(names[m.user_id])}</span>`).join('');
+  $('#lis').innerHTML=members.filter(m=>m.seat_index==null).map(m=>`<span class="chip" ${m.user_id!==user.id?`data-u="${m.user_id}"`:''}><span class="av xs ${avCls(m.user_id)}">${avInner(m.user_id)}</span>${esc(names[m.user_id])}${lvb(m.user_id)}</span>`).join('');
   document.querySelectorAll('[data-u]').forEach(el=>{ el.onclick=()=>userSheet(el.dataset.u); });
   let a='';
   if(me && me.seat_index==null) a+=`<button class="sec" id="rq">${t('speak')}</button>`;
@@ -454,7 +492,9 @@ document.documentElement.dir = lang==='ar'?'rtl':'ltr';
 
 async function inboxView(){
   if(dch){ sb.removeChannel(dch); dch=null; }
-  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>${t('dm')}</h2></div><h3>${t('fing')}</h3><div id="fl" class="c" style="padding:0"></div><h3>${t('convs')}</h3><div id="cv" class="c" style="padding:0"></div></main>`;
+  app.innerHTML=hdr(true)+`<main class="c"><div class="row"><button class="ghost" id="bk">← ${t('bk')}</button><h2>${t('dm')}</h2></div><h3>${t('fing')}</h3><div id="fl" class="c" style="padding:0"></div><h3>${t('convs')}</h3><div id="cv" class="c" style="padding:0"></div><h3>⛔ ${t('blkL')}</h3><div id="bl3" class="c" style="padding:0"></div></main>`;
+  sb.rpc('list_blocked').then(({data})=>{ const e=$('#bl3'); if(!e) return; e.innerHTML=(data||[]).length?data.map(x=>`<div class="card"><div class="row"><b>${esc(x.display_name||'?')}</b><button class="sec" data-u="${x.user_id}">${t('unblk')}</button></div></div>`).join(''):`<p class="note">${t('nodm')}</p>`;
+    e.querySelectorAll('button').forEach(b=>b.onclick=async()=>{ const {error}=await sb.rpc('unblock_user',{p_user:b.dataset.u}); toast(error?error.message:t('unblkd')); if(!error) inboxView(); }); });
   bindHdr(); $('#bk').onclick=()=>{ view='rooms'; roomsView(); };
   const [{data:f},{data:m}]=await Promise.all([sb.from('follow_links').select('followed').eq('follower',user.id),sb.from('dms').select('sender_id,receiver_id').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at',{ascending:false}).limit(100)]);
   const fl=(f||[]).map(x=>x.followed), cv=[]; (m||[]).forEach(x=>{ const o=x.sender_id===user.id?x.receiver_id:x.sender_id; if(!cv.includes(o)) cv.push(o); });
