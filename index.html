@@ -82,6 +82,7 @@ textarea:focus{outline:2px solid var(--mg);outline-offset:1px}
 .sh{width:100%;max-width:560px;background:var(--sf);border-top:1px solid var(--ol);border-radius:22px 22px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;animation:in .2s}
 .sh .row{justify-content:flex-start;gap:12px}
 .dng{color:#ff6b81;border-color:#5a2236}
+.gg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.gi{background:var(--sf2);border:1px solid var(--ol);border-radius:14px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}.gi span{font-size:28px}.gi small{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gi.on{border-color:var(--gold);box-shadow:0 0 12px rgba(245,196,81,.4)}#gq{flex-wrap:nowrap}#gq button{font-size:14px;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -336,14 +337,20 @@ async function profileView(){
   paint();
 }
 let giftList=[];
+const GE={rose:'🌹',heart:'❤️',love:'❤️',crown:'👑',diamond:'💎',car:'🚗',rocket:'🚀',star:'⭐',coffee:'☕',cake:'🎂',ring:'💍',lion:'🦁',castle:'🏰',fire:'🔥',kiss:'💋',teddy:'🧸',bear:'🧸',flower:'🌸',trophy:'🏆',gold:'🪙',coin:'🪙',balloon:'🎈',panda:'🐼',yacht:'🛥️',plane:'✈️'};
+function gEmoji(g){ if(!g) return '🎁'; const n=(g.name&&(g.name.en||''))||''; const m=n.match(/^\p{Extended_Pictographic}/u); if(m) return m[0]; const k=((g.code||'')+' '+n).toLowerCase(); for(const w in GE) if(k.includes(w)) return GE[w]; return '🎁'; }
+let gSel=null, gQty=1;
 async function giftPanel(){
   const g=$('#gf'); if(!g) return;
   const [{data:gs},{data:w}]=await Promise.all([sb.from('gifts').select('id,code,name,price_coins').eq('is_active',true).order('price_coins'),sb.from('wallets').select('balance').eq('user_id',user.id).maybeSingle()]);
-  giftList=gs||[];
-  g.innerHTML=`<div class="row"><b>🎁 ${t('gift')}</b><span class="gold">${t('bal')}: <span id="bl">${w?w.balance:0}</span></span></div><div class="row"><select id="gr" aria-label="${t('to')}"></select><select id="gg">${giftList.map(x=>`<option value="${x.id}">${esc(x.name[lang]||x.name.en)} · ${x.price_coins}</option>`).join('')}</select><button class="pri" id="gs">${t('gift')}</button></div>`;
+  giftList=gs||[]; if(!giftList.find(x=>x.id===gSel)) gSel=giftList[0]?giftList[0].id:null;
+  g.innerHTML=`<div class="row"><b>🎁 ${t('gift')}</b><span class="gold">${t('bal')}: <span id="bl">${w?w.balance:0}</span></span></div><div class="gg">${giftList.map(x=>`<button class="gi${x.id===gSel?' on':''}" data-g="${x.id}" title="${esc(x.name[lang]||x.name.en)}"><span>${gEmoji(x)}</span><small>${esc(x.name[lang]||x.name.en)}</small><small class="gold">${x.price_coins}</small></button>`).join('')}</div><div class="row"><select id="gr" aria-label="${t('to')}"></select><div class="ems" id="gq">${[1,5,10,50].map(n=>`<button class="sec${n===gQty?' on':''}" data-q="${n}">×${n}</button>`).join('')}</div></div><button class="pri" id="gs"></button>`;
   fillRecv();
-  $('#gs').onclick=async()=>{ const r=$('#gr').value; if(!r) return toast(t('nogift'));
-    const {error}=await sb.rpc('send_gift',{p_room:cur.id,p_receiver:r,p_gift:$('#gg').value,p_quantity:1,p_idempotency_key:crypto.randomUUID()});
+  const tot=()=>{ const x=giftList.find(y=>y.id===gSel); $('#gs').textContent=`${gEmoji(x)} ${t('gift')} ×${gQty}`+(x?' · '+x.price_coins*gQty:''); }; tot();
+  g.querySelectorAll('.gi').forEach(b=>b.onclick=()=>{ gSel=b.dataset.g; g.querySelectorAll('.gi').forEach(e=>e.classList.toggle('on',e===b)); tot(); });
+  g.querySelectorAll('#gq button').forEach(b=>b.onclick=()=>{ gQty=+b.dataset.q; g.querySelectorAll('#gq button').forEach(e=>e.classList.toggle('on',e===b)); tot(); });
+  $('#gs').onclick=async()=>{ const r=$('#gr').value; if(!r) return toast(t('nogift')); if(!gSel) return;
+    const {error}=await sb.rpc('send_gift',{p_room:cur.id,p_receiver:r,p_gift:gSel,p_quantity:gQty,p_idempotency_key:crypto.randomUUID()});
     if(error) return toast(error.message); toast(t('gsent'));
     const {data:w2}=await sb.from('wallets').select('balance').eq('user_id',user.id).maybeSingle(); if($('#bl')) $('#bl').textContent=w2?w2.balance:0; };
 }
@@ -355,11 +362,10 @@ async function nameOf(id){
 }
 async function addGift(e){
   const box=$('#chat'); if(!box) return; const [a,b]=await Promise.all([nameOf(e.sender_id),nameOf(e.receiver_id)]);
-  const g=giftList.find(x=>x.id===e.gift_id); const gn=g?(g.name[lang]||g.name.en):'🎁';
+  const g=giftList.find(x=>x.id===e.gift_id); const gn=(g?gEmoji(g)+' '+(g.name[lang]||g.name.en):'🎁');
   const d=document.createElement('div'); d.className='m gold'; d.textContent=`🎁 ${a} ${t('gmsg')} ${gn} ×${e.quantity} → ${b}`;
   box.appendChild(d); box.scrollTop=box.scrollHeight;
-  const f=document.createElement('div'); f.className='fly'; f.textContent=(g&&g.code&&/^\p{Extended_Pictographic}/u.test(g.name.en))?'':'🎁'; f.textContent=f.textContent||'🎁';
-  f.style.left=(10+Math.random()*75)+'vw'; document.body.appendChild(f); setTimeout(()=>f.remove(),2600);
+  const em=gEmoji(g); for(let i=0;i<Math.min(e.quantity||1,8);i++) setTimeout(()=>{ const f=document.createElement('div'); f.className='fly'; f.textContent=em; f.style.left=(8+Math.random()*80)+'vw'; document.body.appendChild(f); setTimeout(()=>f.remove(),2600); },i*180);
 }
 async function addMsg(m){
   const box=$('#chat'); if(!box) return; const n=await nameOf(m.sender_id);
