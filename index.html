@@ -58,6 +58,9 @@ const T = {
  fr:{welcome:'Rencontrez des gens. Parlez en direct.',name:'Nom affiché',email:'E-mail',password:'Mot de passe',signin:'Se connecter',signup:'Créer un compte',checkEmail:'Vérifiez votre e-mail pour confirmer, puis connectez-vous.',logout:'Déconnexion',rooms:'Salons en direct',create:'Nouveau salon',empty:'Aucun salon en direct. Créez le premier.',roomName:'Nom du salon',category:'Catégorie',seats:'Places de parole',createRoom:'Créer le salon',cancel:'Annuler',leave:'Quitter',speakers:'Intervenants',listeners:'Auditeurs',chat:'Discussion',msg:'Écrire un message',send:'Envoyer',speak:'Demander la parole',requests:'Demandes de parole',accept:'Accepter',reject:'Refuser',voiceSoon:'La voix en direct arrive à la prochaine étape.',sent:'Demande envoyée',c_music:'Musique',c_friendship:'Amitié',c_gaming:'Jeux',c_discussion:'Discussion',c_other:'Autre',nokey:'Ajoutez d’abord votre clé Supabase dans index.html.'},
  ar:{welcome:'تعرّف على الناس. تحدّث مباشرة.',name:'الاسم المعروض',email:'البريد الإلكتروني',password:'كلمة المرور',signin:'تسجيل الدخول',signup:'إنشاء حساب',checkEmail:'تحقق من بريدك لتأكيد الحساب ثم سجّل الدخول.',logout:'تسجيل الخروج',rooms:'الغرف المباشرة',create:'غرفة جديدة',empty:'لا توجد غرف مباشرة. أنشئ أول غرفة.',roomName:'اسم الغرفة',category:'التصنيف',seats:'مقاعد المتحدثين',createRoom:'إنشاء الغرفة',cancel:'إلغاء',leave:'مغادرة',speakers:'المتحدثون',listeners:'المستمعون',chat:'الدردشة',msg:'اكتب رسالة',send:'إرسال',speak:'اطلب التحدث',requests:'طلبات التحدث',accept:'قبول',reject:'رفض',voiceSoon:'الصوت المباشر في المرحلة القادمة.',sent:'تم إرسال الطلب',c_music:'موسيقى',c_friendship:'صداقة',c_gaming:'ألعاب',c_discussion:'نقاش',c_other:'أخرى',nokey:'أضف مفتاح Supabase في index.html أولاً.'}
 };
+Object.assign(T.en,{priv:'Private room',pw:'Password',code:'Room ID',joinPriv:'Join private room',gift:'Send gift',to:'To',bal:'Coins',nogift:'No other member',gsent:'Gift sent'});
+Object.assign(T.fr,{priv:'Salon privé',pw:'Mot de passe',code:'ID du salon',joinPriv:'Rejoindre un salon privé',gift:'Envoyer un cadeau',to:'À',bal:'Pièces',nogift:'Aucun autre membre',gsent:'Cadeau envoyé'});
+Object.assign(T.ar,{priv:'غرفة خاصة',pw:'كلمة المرور',code:'رقم الغرفة',joinPriv:'دخول غرفة خاصة',gift:'إرسال هدية',to:'إلى',bal:'العملات',nogift:'لا يوجد عضو آخر',gsent:'تم إرسال الهدية'});
 let lang = 'en'; try { lang = localStorage.getItem('lang') || (navigator.language||'en').slice(0,2); } catch(e){}
 if (!T[lang]) lang = 'en';
 const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
@@ -94,8 +97,9 @@ function authView(){
 }
 
 async function roomsView(){
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="pri" id="new">+ ${t('create')}</button></div><div id="list" class="c" style="padding:0"></div></main>`;
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div id="list" class="c" style="padding:0"></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
+  $('#pj').onclick=async()=>{ const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:+$('#pc').value,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); };
   const {data,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count').eq('is_live',true).order('participant_count',{ascending:false}).limit(30);
   if(error) return toast(error.message);
   const L=$('#list'); if(!L) return;
@@ -115,10 +119,10 @@ function createView(){
     <input id="rn" placeholder="${t('roomName')}" maxlength="60">
     <select id="rc" aria-label="${t('category')}">${['friendship','music','gaming','discussion','other'].map(c=>`<option value="${c}">${t('c_'+c)}</option>`).join('')}</select>
     <select id="rs" aria-label="${t('seats')}"><option value="4">${t('seats')}: 4</option><option value="8" selected>${t('seats')}: 8</option><option value="12">${t('seats')}: 12</option></select>
-    <button class="pri" id="ok">${t('createRoom')}</button><button class="sec" id="no">${t('cancel')}</button></main>`;
+    <label class="note"><input type="checkbox" id="pv"> ${t('priv')}</label><input id="rp" type="password" placeholder="${t('pw')}"><button class="pri" id="ok">${t('createRoom')}</button><button class="sec" id="no">${t('cancel')}</button></main>`;
   bindHdr(); $('#no').onclick=()=>{ view='rooms'; roomsView(); };
   $('#ok').onclick=async()=>{
-    const {data,error}=await sb.rpc('create_room',{p_name:$('#rn').value.trim(),p_description:null,p_category:$('#rc').value,p_language:lang,p_cover_url:null,p_is_private:false,p_capacity:50,p_seat_count:+$('#rs').value});
+    const {data,error}=await sb.rpc('create_room',{p_name:$('#rn').value.trim(),p_description:null,p_category:$('#rc').value,p_language:lang,p_cover_url:null,p_is_private:$('#pv').checked,p_capacity:50,p_seat_count:+$('#rs').value,p_password:$('#pv').checked?($('#rp').value||null):null});
     if(error) return toast(error.message);
     const {data:r}=await sb.from('rooms').select('*').eq('id',data).single(); cur=r; view='room'; openRoom(r.id);
   };
@@ -131,13 +135,13 @@ async function openRoom(id){
   cur=r;
   app.innerHTML = hdr(true)+`<main class="c"><div class="row"><div><h2>${esc(r.name)}</h2><small id="cnt"></small></div><button class="sec" id="lv">${t('leave')}</button></div>
     <p class="note">🎙 ${t('voiceSoon')}</p><h3>${t('speakers')}</h3><div id="seats" class="seats"></div><div id="acts" class="c" style="padding:0"></div>
-    <h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat"></div>
+    <div id="gf" class="c" style="padding:0"></div><h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat"></div>
     <div class="send"><input id="mi" placeholder="${t('msg')}" maxlength="500"><button class="pri" id="sd">${t('send')}</button></div></main>`;
   bindHdr();
   $('#lv').onclick=async()=>{ await sb.rpc('leave_room',{p_room:id}); cleanup(); cur=null; view='rooms'; roomsView(); };
   const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; $('#mi').value=''; const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error) toast(error.message); };
   $('#sd').onclick=send; $('#mi').onkeydown=e=>{ if(e.key==='Enter') send(); };
-  await loadMembers();
+  await loadMembers(); giftPanel();
   const {data:ms}=await sb.from('messages').select('id,sender_id,body').eq('room_id',id).order('created_at',{ascending:false}).limit(50);
   for(const m of (ms||[]).reverse()) await addMsg(m);
   ch=sb.channel('room-'+id)
@@ -147,6 +151,20 @@ async function openRoom(id){
     .subscribe();
 }
 
+let giftList=[];
+async function giftPanel(){
+  const g=$('#gf'); if(!g) return;
+  const [{data:gs},{data:w}]=await Promise.all([sb.from('gifts').select('id,code,name,price_coins').eq('is_active',true).order('price_coins'),sb.from('wallets').select('balance').eq('user_id',user.id).maybeSingle()]);
+  giftList=gs||[];
+  g.innerHTML=`<div class="row"><b>🎁 ${t('gift')}</b><span class="gold">${t('bal')}: <span id="bl">${w?w.balance:0}</span></span></div><div class="row"><select id="gr" aria-label="${t('to')}"></select><select id="gg">${giftList.map(x=>`<option value="${x.id}">${esc(x.name[lang]||x.name.en)} · ${x.price_coins}</option>`).join('')}</select><button class="pri" id="gs">${t('gift')}</button></div>`;
+  fillRecv();
+  $('#gs').onclick=async()=>{ const r=$('#gr').value; if(!r) return toast(t('nogift'));
+    const {error}=await sb.rpc('send_gift',{p_room:cur.id,p_receiver:r,p_gift:$('#gg').value,p_quantity:1,p_idempotency_key:crypto.randomUUID()});
+    if(error) return toast(error.message); toast(t('gsent'));
+    const {data:w2}=await sb.from('wallets').select('balance').eq('user_id',user.id).maybeSingle(); if($('#bl')) $('#bl').textContent=w2?w2.balance:0; };
+}
+function fillRecv(){ const r=$('#gr'); if(!r) return; const v=r.value;
+  r.innerHTML=members.filter(m=>m.user_id!==user.id).map(m=>`<option value="${m.user_id}">${esc(names[m.user_id]||'?')}</option>`).join(''); if(v) r.value=v; }
 async function nameOf(id){
   if(!names[id]){ const {data}=await sb.from('profiles').select('display_name').eq('id',id).single(); names[id]=data?.display_name||'?'; }
   return names[id];
@@ -163,7 +181,7 @@ async function loadMembers(){
   members=data||[]; members.forEach(m=>names[m.user_id]=m.profiles?.display_name||'?');
   if(!$('#seats')) return;
   const me=members.find(m=>m.user_id===user.id);
-  $('#cnt').textContent=`${members.length}/${cur.capacity}`;
+  fillRecv(); $('#cnt').textContent=`${members.length}/${cur.capacity}`;
   let s=''; for(let i=0;i<cur.seat_count;i++){ const m=members.find(x=>x.seat_index===i);
     s+= m ? `<div class="seat"><div class="av ${m.role==='owner'?'own':''}">${esc((names[m.user_id]||'?')[0].toUpperCase())}</div><small>${esc(names[m.user_id])}</small></div>` : `<div class="seat"><div class="av empty">+</div></div>`; }
   $('#seats').innerHTML=s;
