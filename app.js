@@ -35,9 +35,9 @@ Object.assign(T.ar,{grant:'شحن العملات',srchU:'ابحث باسم ال�
 Object.assign(T.en,{blk:'Block user',unblk:'Unblock',blkd:'User blocked',unblkd:'Block removed',blkL:'Blocked users'});
 Object.assign(T.fr,{blk:'Bloquer',unblk:'Débloquer',blkd:'Utilisateur bloqué',unblkd:'Blocage retiré',blkL:'Utilisateurs bloqués'});
 Object.assign(T.ar,{blk:'حظر المستخدم',unblk:'إلغاء الحظر',blkd:'تم حظر المستخدم',unblkd:'تم إلغاء الحظر',blkL:'المحظورون'});
-Object.assign(T.en,{pinPh:'Pinned message (empty to remove)',slow:'Slow mode',off:'off',slowErr:'Slow mode: wait before sending again',dupErr:'Duplicate message',copied:'Link copied'});
-Object.assign(T.fr,{pinPh:'Message épinglé (vide pour retirer)',slow:'Mode lent',off:'désactivé',slowErr:'Mode lent : attendez avant de renvoyer',dupErr:'Message en double',copied:'Lien copié'});
-Object.assign(T.ar,{pinPh:'رسالة مثبتة (اتركها فارغة للحذف)',slow:'الوضع البطيء',off:'متوقف',slowErr:'الوضع البطيء: انتظر قبل الإرسال',dupErr:'رسالة مكررة',copied:'تم نسخ الرابط'});
+Object.assign(T.en,{jump:'Latest',pinPh:'Pinned message (empty to remove)',slow:'Slow mode',off:'off',slowErr:'Slow mode: wait before sending again',dupErr:'Duplicate message',copied:'Link copied'});
+Object.assign(T.fr,{jump:'Dernier',pinPh:'Message épinglé (vide pour retirer)',slow:'Mode lent',off:'désactivé',slowErr:'Mode lent : attendez avant de renvoyer',dupErr:'Message en double',copied:'Lien copié'});
+Object.assign(T.ar,{jump:'الأحدث',pinPh:'رسالة مثبتة (اتركها فارغة للحذف)',slow:'الوضع البطيء',off:'متوقف',slowErr:'الوضع البطيء: انتظر قبل الإرسال',dupErr:'رسالة مكررة',copied:'تم نسخ الرابط'});
 let pendingRoom=null; try{ const q=new URLSearchParams(location.search).get('room'); if(q&&/^\d+$/.test(q)){ pendingRoom=q; sessionStorage.setItem('pr',q); } else pendingRoom=sessionStorage.getItem('pr'); }catch(e){}
 const lvls={};
 function lvb(u){ const l=lvls[u]; return l?` <span class="lv">${l>=30?'💎':l>=15?'🥇':l>=5?'⭐':'🔹'}${l}</span>`:''; }
@@ -91,7 +91,7 @@ function openSheet(d){ sheetPrev=document.activeElement; d.setAttribute('role','
 function closeSheet(){ const e=document.getElementById('sheet'); if(e){ e.remove(); document.removeEventListener('keydown',sheetKey); if(sheetPrev&&document.contains(sheetPrev)) sheetPrev.focus(); sheetPrev=null; } }
 const seenMsg=new Set(), seenGift=new Set();
 async function once(b,fn){ if(b&&b.disabled) return; if(b) b.disabled=true; try{ return await fn(); } finally{ if(b&&b.isConnected) b.disabled=false; } }
-function pushChat(box,d){ const near=box.scrollHeight-box.scrollTop-box.clientHeight<80; box.appendChild(d); while(box.children.length>200) box.firstChild.remove(); if(near||d.classList.contains('me')) box.scrollTop=box.scrollHeight; }
+function pushChat(box,d){ const near=box.scrollHeight-box.scrollTop-box.clientHeight<80; box.appendChild(d); while(box.children.length>200) box.firstChild.remove(); if(near||d.classList.contains('me')) box.scrollTop=box.scrollHeight; else if(box.id==='chat'){ const j=document.getElementById('jmp'); if(j) j.hidden=false; } }
 async function userSheet(uid){ closeSheet();
   const tg=members.find(x=>x.user_id===uid), me=members.find(x=>x.user_id===user.id); if(!tg||!me) return;
   const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
@@ -240,13 +240,17 @@ async function openRoom(id){
   cur=r;
   app.innerHTML = hdr(true)+`<main class="c"><div class="row"><div><h2>${esc(r.name)}</h2><small><span id="cnt"></span><span id="slwi"></span></small></div><span style="display:flex;gap:6px"><button class="sec" id="sh"${r.is_private?' hidden':''}>🔗</button><button class="sec" id="st" hidden>⚙</button><button class="sec" id="lv">${t('leave')}</button></span></div><div id="pin" class="note" hidden></div>
     <h3>${t('speakers')}</h3><div id="seats" class="seats"></div><div id="acts" class="c" style="padding:0"></div>
-    <div id="vo" class="row"></div><div id="gf" class="c" style="padding:0"></div><h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat" role="log" aria-live="polite" aria-label="${t('chat')}"></div><small id="tp" aria-hidden="true" style="min-height:16px;color:var(--tx2)"></small><div class="ems" id="rx">${RX.map(x=>`<button class="sec" data-r="${x}">${x}</button>`).join('')}</div>
+    <div id="vo" class="row"></div><div id="gf" class="c" style="padding:0"></div><h3>${t('listeners')}</h3><div id="lis" class="chips"></div><h3>${t('chat')}</h3><div id="chat" class="chat" role="log" aria-live="polite" aria-label="${t('chat')}"></div><button class="sec" id="jmp" hidden style="align-self:center">⬇ ${t('jump')}</button><small id="tp" aria-hidden="true" style="min-height:16px;color:var(--tx2)"></small><div class="ems" id="rx">${RX.map(x=>`<button class="sec" data-r="${x}">${x}</button>`).join('')}</div>
     <div class="send"><input id="mi" enterkeyhint="send" autocomplete="off" placeholder="${t('msg')}" maxlength="500"><button class="pri" id="sd">${t('send')}</button></div></main>`;
   bindHdr();
   $('#lv').onclick=async()=>{ cur._leaving=true; await sb.rpc('leave_room',{p_room:id}); cleanup(); cur=null; view='rooms'; roomsView(); };
   paintMeta();
   $('#sh').onclick=async()=>{ const u=location.origin+location.pathname+'?room='+r.public_id; try{ if(navigator.share) await navigator.share({title:r.name,url:u}); else { await navigator.clipboard.writeText(u); toast(t('copied')); } }catch(e){ if(e&&e.name==='AbortError') return; try{ await navigator.clipboard.writeText(u); toast(t('copied')); }catch(_){ prompt('',u); } } };
-  const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; if(!navigator.onLine) return toast(t('offline')); $('#mi').value=''; const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error){ $('#mi').value=b; toast(/slow/i.test(error.message)?t('slowErr'):/duplicate/i.test(error.message)?t('dupErr'):error.message); } };
+  const dk='dr:'+id; try{ $('#mi').value=localStorage.getItem(dk)||''; }catch(e){}
+  $('#mi').addEventListener('input',()=>{ try{ const v=$('#mi').value; v?localStorage.setItem(dk,v):localStorage.removeItem(dk); }catch(e){} });
+  const jb=$('#jmp'), cb=$('#chat'); jb.onclick=()=>{ cb.scrollTop=cb.scrollHeight; jb.hidden=true; }; cb.addEventListener('scroll',()=>{ if(cb.scrollHeight-cb.scrollTop-cb.clientHeight<40) jb.hidden=true; });
+  let lastSend=0;
+  const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; if(!navigator.onLine) return toast(t('offline')); if(Date.now()-lastSend<600) return; lastSend=Date.now(); $('#mi').value=''; try{ localStorage.removeItem(dk); }catch(e){} const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error){ $('#mi').value=b; toast(/slow/i.test(error.message)?t('slowErr'):/duplicate/i.test(error.message)?t('dupErr'):error.message); } };
   $('#sd').onclick=send;
   $('#chat').onclick=e=>{ const x=e.target.closest('[data-del]'); if(x){ if(confirm(t('delAsk'))) sb.rpc('delete_message',{p_message:x.dataset.del}).then(({error})=>{ if(error) toast(error.message); else removeMsg(x.dataset.del); }); return; } const b=e.target.closest('b'); const mi=$('#mi'); if(!b||!mi) return; mi.value=(mi.value+' @'+b.textContent+' ').trimStart(); mi.focus(); };
   let tl=0; $('#mi').addEventListener('input',()=>{ if(Date.now()-tl<2000||!ch) return; tl=Date.now(); ch.send({type:'broadcast',event:'typing',payload:{u:user.id}}); }); $('#mi').onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing) send(); };
