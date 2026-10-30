@@ -1,6 +1,6 @@
 // ===== CONFIG: paste your Supabase publishable/anon key (NEVER the secret or service_role key) =====
 const CFG = { url: 'https://xhpducobaxvgncntdzns.supabase.co', key: 'sb_publishable_BNdrYR7KgZDFVm2xi91piw_dbqJ99TM' };
-CFG.turn = []; // optional TURN for voice on mobile networks: [{urls:'turn:HOST:3478',username:'USER',credential:'PASS'}]
+CFG.turn = [{urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]; // optional TURN for voice on mobile networks: [{urls:'turn:HOST:3478',username:'USER',credential:'PASS'}]
 const sb = supabase.createClient(CFG.url, CFG.key);
 
 const T = {
@@ -268,7 +268,7 @@ const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l
 let vc=null,vpeers={},vstream=null,vjoined=false;
 function myRole(){ const m=members.find(x=>x.user_id===user.id); return m?m.role:'listener'; }
 function renderVoice(){ const v=$('#vo'); if(!v) return;
-  v.innerHTML=`<button class="sec" id="vj">${vjoined?'🔇 '+t('vleave'):'🎧 '+t('vjoin')}</button>${vjoined?`<button class="${vstream?'pri':'sec'}" id="vm">🎙 ${vstream?t('micoff'):t('mic')}</button>`:''}`;
+  v.innerHTML=`<button class="sec" id="vj">${vjoined?'🔇 '+t('vleave'):'🎧 '+t('vjoin')}</button>${vjoined?`<button class="${vstream?'pri':'sec'}" id="vm">🎙 ${vstream?t('micoff'):t('mic')}</button><small id="vs" dir="ltr" style="display:block;width:100%;color:var(--tx2)"></small>`:''}`;
   $('#vj').onclick=()=>{ if(vjoined){ voiceLeave(); renderVoice(); } else voiceJoin(); };
   const m=$('#vm'); if(m) m.onclick=micToggle; }
 const vmon={};
@@ -278,7 +278,8 @@ function watchLevel(stream,uid){ stopWatch(uid); try{ const C=window.AudioContex
 function vsend(to,d){ vc&&vc.send({type:'broadcast',event:'sig',payload:{from:user.id,to,...d}}); }
 function drop(id){ stopWatch(id); const pc=vpeers[id]; if(pc){ try{pc.close();}catch(e){} delete vpeers[id]; } const a=document.getElementById('a'+id); if(a) a.remove(); }
 function mkPeer(id){ const pc=new RTCPeerConnection(ICE); vpeers[id]=pc; pc._q=[];
-  pc.oniceconnectionstatechange=()=>{ if(pc.iceConnectionState==='failed') toast(t('voiceFail')); };
+  pc.oniceconnectionstatechange=()=>{ if(pc.iceConnectionState==='failed') toast(t('voiceFail')); vstat(); };
+  setTimeout(()=>{ if(vpeers[id]===pc&&!['connected','completed'].includes(pc.iceConnectionState)) toast(t('voiceFail')); },15000);
   pc.onicecandidate=e=>{ if(e.candidate) vsend(id,{c:e.candidate}); };
   pc.ontrack=e=>{ let a=document.getElementById('a'+id); if(!a){ a=document.createElement('audio'); a.id='a'+id; a.autoplay=true; a.setAttribute('playsinline',''); document.body.appendChild(a); }
     a.srcObject=e.streams[0]||new MediaStream([e.track]); a.play().catch(()=>{}); watchLevel(a.srcObject,id); };
@@ -307,6 +308,8 @@ async function micToggle(){ if(vstream){ stopWatch(user.id); vstream.getTracks()
     try{ vstream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ return toast(e&&e.name==='NotAllowedError'?t('micden'):e.message); }
     Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(curTrack()))); watchLevel(vstream,user.id); }
   renderVoice(); }
+function vstat(){ const e=$('#vs'); if(!e) return; const ids=vc?Object.keys(vc.presenceState()):[]; const ps=Object.entries(vpeers).map(([id,pc])=>(names[id]||id.slice(0,4))+': '+pc.iceConnectionState).join(' | '); e.textContent='voice: '+ids.length+' online'+(ps?' | '+ps:' | no peer')+(vstream?' | mic on':' | mic off'); }
+setInterval(vstat,1500);
 function voiceLeave(){ stopWatch(user&&user.id); Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; lockOff(); }
 async function boardView(){
   app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🏆 ${t('board')}</h2><button class="sec" id="bb">${t('bk')}</button></div><div id="bl2" class="c" style="padding:0"></div></main>`;
