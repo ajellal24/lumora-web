@@ -278,6 +278,7 @@ function watchLevel(stream,uid){ stopWatch(uid); try{ const C=window.AudioContex
 function vsend(to,d){ vc&&vc.send({type:'broadcast',event:'sig',payload:{from:user.id,to,...d}}); }
 function drop(id){ stopWatch(id); const pc=vpeers[id]; if(pc){ try{pc.close();}catch(e){} delete vpeers[id]; } const a=document.getElementById('a'+id); if(a) a.remove(); }
 function mkPeer(id){ const pc=new RTCPeerConnection(ICE); vpeers[id]=pc; pc._q=[];
+  pc.oniceconnectionstatechange=()=>{ if(pc.iceConnectionState==='failed') toast(t('voiceFail')); };
   pc.onicecandidate=e=>{ if(e.candidate) vsend(id,{c:e.candidate}); };
   pc.ontrack=e=>{ let a=document.getElementById('a'+id); if(!a){ a=document.createElement('audio'); a.id='a'+id; a.autoplay=true; a.setAttribute('playsinline',''); document.body.appendChild(a); }
     a.srcObject=e.streams[0]||new MediaStream([e.track]); a.play().catch(()=>{}); watchLevel(a.srcObject,id); };
@@ -473,6 +474,7 @@ addEventListener('popstate',()=>{ pushed=false; if(!user) return;
   if(view!=='rooms'){ cleanup(); cur=null; view='rooms'; roomsView(); } });
 Object.assign(T.en,{retry:'Retry'});Object.assign(T.fr,{retry:'Réessayer'});Object.assign(T.ar,{retry:'إعادة المحاولة'});
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+Object.assign(T.en,{voiceFail:'Voice connection failed (network blocks direct audio, a TURN server is needed)'});Object.assign(T.fr,{voiceFail:'Connexion vocale échouée (le réseau bloque l’audio direct, un serveur TURN est nécessaire)'});Object.assign(T.ar,{voiceFail:'فشل اتصال الصوت (الشبكة كتمنع الصوت المباشر، خاص سيرفر TURN)'});
 function netUI(){ const o=document.getElementById('off'); if(o){ o.textContent=t('offline'); o.hidden=navigator.onLine; } }
 addEventListener('online',()=>{ netUI(); if(user){ refreshUnread(); if(view==='room'&&cur) loadMembers(); } });
 addEventListener('offline',netUI); netUI();
