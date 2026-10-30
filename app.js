@@ -101,10 +101,11 @@ async function userSheet(uid){ closeSheet();
     if(rank(me.role)>=4) ac+=`<button class="sec" data-k="${tg.role==='moderator'?'unmod':'promote'}">🛡 ${tg.role==='moderator'?t('unmod'):t('promote')}</button>`;
     ac+=`<button class="sec dng" data-k="kick">🚫 ${t('kick')}</button><button class="sec dng" data-k="ban">⛔ ${t('ban')}</button>`;
   }
-  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec" data-k="gft">🎁 ${t('gift')}</button><button class="sec" data-k="inv">🎟 ${t('inv')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button><button class="sec dng" data-k="blk" id="bb2">⛔ ${t('blk')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.innerHTML=`<div class="sh"><div class="row"><div class="av sm ${avCls(uid)}">${avInner(uid)}</div><div><b>${tg.role==='owner'?'👑 ':tg.role==='moderator'||tg.role==='admin'?'🛡 ':''}${esc(names[uid]||'?')}</b><br><small id="ul"></small></div></div><p class="note" id="ub">…</p>${uid!==user.id?`<button class="sec" data-k="fol" id="fb">＋ ${t('follow')}</button><button class="sec" data-k="dm">✉ ${t('dm')}</button><button class="sec" data-k="gft">🎁 ${t('gift')}</button><button class="sec" data-k="hide">${hidden.has(uid)?'🔊 '+t('unhide'):'🔇 '+t('hide')}</button><button class="sec" data-k="inv">🎟 ${t('inv')}</button><button class="sec dng" data-k="rep">⚠ ${t('rep')}</button><button class="sec dng" data-k="blk" id="bb2">⛔ ${t('blk')}</button>`:''}${ac}<button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k; closeSheet(); if(k==='x') return;
     if(k==='fol'){ const on=b.dataset.f==='1'; const r0=on?await sb.from('follow_links').delete().eq('follower',user.id).eq('followed',uid):await sb.from('follow_links').insert({follower:user.id,followed:uid}); return toast(r0.error?r0.error.message:t(on?'foff':'fon')); }
     if(k==='dm'){ return dmView(uid); }
+    if(k==='hide'){ if(hidden.has(uid)) hidden.delete(uid); else hidden.add(uid); try{ localStorage.setItem('hid',JSON.stringify([...hidden])); }catch(e){} toast(hidden.has(uid)?t('hidOn'):t('hidOff')); closeSheet(); return; }
     if(k==='gft'){ const r=$('#gr'); if(r){ r.value=uid; const g=$('#gf'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
     if(k==='inv'){ const {error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:'🎟 '+cur.name+' [[room:'+cur.id+']]'}); return toast(error?error.message:t('invSent')); }
     if(k==='blk'){ const on=b.dataset.b==='1'; const {error}=await sb.rpc(on?'unblock_user':'block_user',{p_user:uid}); return toast(error?error.message:t(on?'unblkd':'blkd')); }
@@ -156,7 +157,7 @@ async function adminView(){
   L2.innerHTML=(bn||[]).length?bn.map(b=>`<div class="card"><div class="row"><span><b>${esc(b.user_name||'?')}</b><br><small>${t('inRoom')}: ${esc(b.room_name||'?')}</small></span><button class="sec" data-r="${b.room_id}" data-u="${b.user_id}">${t('unban')}</button></div></div>`).join(''):`<p class="note">${t('norep')}</p>`;
   L2.querySelectorAll('button').forEach(x=>x.onclick=async e=>{ e.stopPropagation(); const {error}=await sb.rpc('admin_unban',{p_room:x.dataset.r,p_user:x.dataset.u}); toast(error?error.message:t('unbanned')); if(!error) adminView(); });
 }
-async function refreshUnread(){ if(!user||!$('#ubd')) return; try{ const {data,error}=await sb.rpc('unread_dm_count'); if(error) return; let n=data; if(Array.isArray(n)) n=n[0]; if(n&&typeof n==='object') n=Object.values(n)[0]; n=+n||0; const e=$('#ubd'); if(e) e.textContent=n>0?' '+n:''; }catch(e){} }
+async function refreshUnread(){ if(!user||!$('#ubd')) return; try{ const {data,error}=await sb.rpc('unread_dm_count'); if(error) return; let n=data; if(Array.isArray(n)) n=n[0]; if(n&&typeof n==='object') n=Object.values(n)[0]; n=+n||0; const e=$('#ubd'); if(e) e.textContent=n>0?' '+n:''; document.title=(n>0?'('+n+') ':'')+document.title.replace(/^\(\d+\)\s/,''); }catch(e){} }
 let nch=null;
 function startNotifs(){ if(nch||!user) return; nch=sb.channel('notif-'+user.id)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+user.id},async p=>{ const n=await nameOf(p.new.actor_id); toast('🔔 '+n+' '+t('nowLive')+(p.new.room_name?': '+p.new.room_name:'')); if(view==='rooms') roomsView(); })
@@ -247,7 +248,7 @@ async function openRoom(id){
   $('#sh').onclick=async()=>{ const u=location.origin+location.pathname+'?room='+r.public_id; try{ if(navigator.share) await navigator.share({title:r.name,url:u}); else { await navigator.clipboard.writeText(u); toast(t('copied')); } }catch(e){ if(e&&e.name==='AbortError') return; try{ await navigator.clipboard.writeText(u); toast(t('copied')); }catch(_){ prompt('',u); } } };
   const send=async()=>{ const b=$('#mi').value.trim(); if(!b) return; if(!navigator.onLine) return toast(t('offline')); $('#mi').value=''; const {error}=await sb.from('messages').insert({room_id:id,sender_id:user.id,body:b}); if(error){ $('#mi').value=b; toast(/slow/i.test(error.message)?t('slowErr'):/duplicate/i.test(error.message)?t('dupErr'):error.message); } };
   $('#sd').onclick=send;
-  $('#chat').onclick=e=>{ const b=e.target.closest('b'); const mi=$('#mi'); if(!b||!mi) return; mi.value=(mi.value+' @'+b.textContent+' ').trimStart(); mi.focus(); };
+  $('#chat').onclick=e=>{ const x=e.target.closest('[data-del]'); if(x){ if(confirm(t('delAsk'))) sb.rpc('delete_message',{p_message:x.dataset.del}).then(({error})=>{ if(error) toast(error.message); else removeMsg(x.dataset.del); }); return; } const b=e.target.closest('b'); const mi=$('#mi'); if(!b||!mi) return; mi.value=(mi.value+' @'+b.textContent+' ').trimStart(); mi.focus(); };
   let tl=0; $('#mi').addEventListener('input',()=>{ if(Date.now()-tl<2000||!ch) return; tl=Date.now(); ch.send({type:'broadcast',event:'typing',payload:{u:user.id}}); }); $('#mi').onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing) send(); };
   let rl=0; $('#rx').querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(Date.now()-rl<400||!ch) return; rl=Date.now(); ch.send({type:'broadcast',event:'react',payload:{e:b.dataset.r}}); });
   await loadMembers(); giftPanel(); renderVoice();
@@ -259,6 +260,7 @@ async function openRoom(id){
     .on('postgres_changes',{event:'*',schema:'public',table:'room_members',filter:'room_id=eq.'+id},loadSoon)
     .on('postgres_changes',{event:'*',schema:'public',table:'speaker_requests',filter:'room_id=eq.'+id},loadSoon)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rooms',filter:'id=eq.'+id},p=>{ if(!cur||!p.new) return; cur.pinned=p.new.pinned; cur.slow_seconds=p.new.slow_seconds; if(p.new.name) cur.name=p.new.name; paintMeta(); })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},p=>{ const i=p.old&&p.old.id; if(i) removeMsg(i); })
     .on('broadcast',{event:'react'},({payload})=>flyEmoji(payload&&payload.e))
     .on('broadcast',{event:'typing'},({payload})=>showTyping(payload&&payload.u))
     .subscribe(st=>{ if((st==='CHANNEL_ERROR'||st==='TIMED_OUT')&&navigator.onLine&&cur&&cur.id===id&&!cur._leaving){ clearTimeout(window._rc); window._rc=setTimeout(()=>{ if(cur&&cur.id===id&&view==='room'&&!cur._leaving) openRoom(id); },4000); } });
@@ -383,8 +385,9 @@ async function addGift(e){
   const em=gEmoji(g); for(let i=0;i<Math.min(e.quantity||1,8);i++) setTimeout(()=>{ const f=document.createElement('div'); f.className='fly'; f.textContent=em; f.style.left=(8+Math.random()*80)+'vw'; document.body.appendChild(f); setTimeout(()=>f.remove(),2600); },i*180);
 }
 async function addMsg(m){
-  const box=$('#chat'); if(!box) return; if(m.id){ if(seenMsg.has(m.id)) return; seenMsg.add(m.id); } const n=await nameOf(m.sender_id);
-  const d=document.createElement('div'); d.className='m'+(m.sender_id===user.id?' me':'')+(user&&names[user.id]&&m.sender_id!==user.id&&(m.body||'').toLowerCase().includes('@'+names[user.id].toLowerCase())?' mn':''); d.innerHTML=`<b>${esc(n)}</b>${lvb(m.sender_id)} ${linkify(m.body)}${m.created_at?`<small class="tm">${new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small>`:''}`;
+  const box=$('#chat'); if(!box) return; if(hidden.has(m.sender_id)) return; if(m.id){ if(seenMsg.has(m.id)) return; seenMsg.add(m.id); } const n=await nameOf(m.sender_id);
+  const d=document.createElement('div'); d.className='m'+(m.sender_id===user.id?' me':'')+(user&&names[user.id]&&m.sender_id!==user.id&&(m.body||'').toLowerCase().includes('@'+names[user.id].toLowerCase())?' mn':''); if(d.className.includes(' mn')&&navigator.vibrate) navigator.vibrate(60); d.innerHTML=`<b>${esc(n)}</b>${lvb(m.sender_id)} ${linkify(m.body)}${m.created_at?`<small class="tm">${new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small>`:''}`;
+  if(m.id){ d.dataset.id=m.id; if(m.sender_id===user.id||['owner','moderator','admin'].includes(myRole())) d.insertAdjacentHTML('beforeend','<button class="del" data-del="'+esc(String(m.id))+'" aria-label="'+t('del')+'">🗑</button>'); }
   pushChat(box,d);
 }
 
@@ -478,6 +481,14 @@ addEventListener('popstate',()=>{ pushed=false; if(!user) return;
 Object.assign(T.en,{retry:'Retry'});Object.assign(T.fr,{retry:'Réessayer'});Object.assign(T.ar,{retry:'إعادة المحاولة'});
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 Object.assign(T.en,{voiceFail:'Voice connection failed (network blocks direct audio, a TURN server is needed)'});Object.assign(T.fr,{voiceFail:'Connexion vocale échouée (le réseau bloque l’audio direct, un serveur TURN est nécessaire)'});Object.assign(T.ar,{voiceFail:'فشل اتصال الصوت (الشبكة كتمنع الصوت المباشر، خاص سيرفر TURN)'});
+let hidden=new Set(); try{ hidden=new Set(JSON.parse(localStorage.getItem('hid')||'[]')); }catch(e){}
+Object.assign(T.en,{hide:'Hide their messages',unhide:'Show their messages',hidOn:'Messages hidden on this device',hidOff:'Messages shown again'});
+Object.assign(T.fr,{hide:'Masquer ses messages',unhide:'Afficher ses messages',hidOn:'Messages masqués sur cet appareil',hidOff:'Messages à nouveau affichés'});
+Object.assign(T.ar,{hide:'إخفاء رسائله',unhide:'إظهار رسائله',hidOn:'تم إخفاء رسائله فهاد الجهاز',hidOff:'رجعات الرسائل تبان'});
+function removeMsg(id){ id=String(id); document.querySelectorAll('#chat [data-id]').forEach(n=>{ if(n.dataset.id===id) n.remove(); }); }
+Object.assign(T.en,{del:'Delete message',delAsk:'Delete this message?'});
+Object.assign(T.fr,{del:'Supprimer le message',delAsk:'Supprimer ce message ?'});
+Object.assign(T.ar,{del:'حذف الرسالة',delAsk:'واش بغيتي تمسح هاد الرسالة؟'});
 function netUI(){ const o=document.getElementById('off'); if(o){ o.textContent=t('offline'); o.hidden=navigator.onLine; } }
 addEventListener('online',()=>{ netUI(); if(user){ refreshUnread(); if(view==='room'&&cur) loadMembers(); } });
 addEventListener('offline',netUI); netUI();
