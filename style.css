@@ -149,3 +149,7 @@ main:has(#chat) .send input{border-radius:22px}
 #thm{font-size:18px}
 .post,.rc{content-visibility:auto;contain-intrinsic-size:auto 140px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+:root[data-theme=light] header{background:rgba(246,243,255,.85)}
+:root[data-theme=light] .sec{color:var(--tx)}
+:root[data-theme=light] .sec.dng,:root[data-theme=light] .dng{color:#d6334f}
+:root[data-theme=light] .stories .st small,:root[data-theme=light] .st small{color:var(--tx)}
