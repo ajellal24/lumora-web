@@ -270,7 +270,7 @@ async function openRoom(id){
     .subscribe(st=>{ if((st==='CHANNEL_ERROR'||st==='TIMED_OUT')&&navigator.onLine&&cur&&cur.id===id&&!cur._leaving){ clearTimeout(window._rc); window._rc=setTimeout(()=>{ if(cur&&cur.id===id&&view==='room'&&!cur._leaving) openRoom(id); },4000); } });
 }
 
-const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},...(CFG.turn||[])]};
+const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},...(CFG.turn||[])],iceCandidatePoolSize:2};
 let vc=null,vpeers={},vstream=null,vjoined=false;
 function myRole(){ const m=members.find(x=>x.user_id===user.id); return m?m.role:'listener'; }
 function renderVoice(){ const v=$('#vo'); if(!v) return;
@@ -281,6 +281,7 @@ const vmon={};
 function stopWatch(uid){ const v=vmon[uid]; if(v){ clearInterval(v.timer); try{v.ctx.close();}catch(e){} delete vmon[uid]; } document.querySelectorAll('.av[data-uid="'+uid+'"]').forEach(e=>e.classList.remove('talk')); }
 function watchLevel(stream,uid){ stopWatch(uid); try{ const C=window.AudioContext||window.webkitAudioContext; const ctx=new C(); if(ctx.resume) ctx.resume(); const an=ctx.createAnalyser(); an.fftSize=256; ctx.createMediaStreamSource(stream).connect(an); const buf=new Uint8Array(an.fftSize);
   const timer=setInterval(()=>{ an.getByteTimeDomainData(buf); let m=0; for(const x of buf) m=Math.max(m,Math.abs(x-128)); document.querySelectorAll('.av[data-uid="'+uid+'"]').forEach(e=>e.classList.toggle('talk',m>12)); },150); vmon[uid]={ctx,timer}; }catch(e){} }
+document.addEventListener('click',()=>{ document.querySelectorAll('audio').forEach(a=>{ if(a.paused&&a.srcObject) a.play().catch(()=>{}); }); Object.values(vmon).forEach(v=>{ try{ v.ctx.resume(); }catch(e){} }); },{passive:true});
 function vsend(to,d){ vc&&vc.send({type:'broadcast',event:'sig',payload:{from:user.id,to,...d}}); }
 function drop(id){ stopWatch(id); const pc=vpeers[id]; if(pc){ try{pc.close();}catch(e){} delete vpeers[id]; } const a=document.getElementById('a'+id); if(a) a.remove(); }
 function mkPeer(id){ const pc=new RTCPeerConnection(ICE); vpeers[id]=pc; pc._q=[];
@@ -289,8 +290,9 @@ function mkPeer(id){ const pc=new RTCPeerConnection(ICE); vpeers[id]=pc; pc._q=[
   pc.onicecandidate=e=>{ if(e.candidate) vsend(id,{c:e.candidate}); };
   pc.ontrack=e=>{ let a=document.getElementById('a'+id); if(!a){ a=document.createElement('audio'); a.id='a'+id; a.autoplay=true; a.setAttribute('playsinline',''); document.body.appendChild(a); }
     a.srcObject=e.streams[0]||new MediaStream([e.track]); a.play().catch(()=>{}); watchLevel(a.srcObject,id); };
-  pc.onconnectionstatechange=()=>{ if(pc.connectionState==='failed') drop(id); };
+  pc.onconnectionstatechange=()=>{ if(pc.connectionState==='failed'){ drop(id); retryPeer(id); } };
   return pc; }
+function retryPeer(id){ setTimeout(()=>{ if(!vjoined||!vc||vpeers[id]) return; if(!(id in vc.presenceState())) return; if(user.id<id) vconnect(id); },2500); }
 function curTrack(){ return vstream?vstream.getAudioTracks()[0]:null; }
 async function vconnect(id){ const pc=mkPeer(id); const tr=pc.addTransceiver('audio',{direction:'sendrecv'}); if(curTrack()) tr.sender.replaceTrack(curTrack());
   await pc.setLocalDescription(await pc.createOffer()); vsend(id,{d:pc.localDescription}); }
@@ -310,12 +312,13 @@ function voiceJoin(){ if(vjoined||!cur) return; vjoined=true; lockOn();
     .subscribe(st=>{ if(st==='SUBSCRIBED') vc.track({on:1}); });
   renderVoice(); }
 async function micToggle(){ if(vstream){ stopWatch(user.id); vstream.getTracks().forEach(x=>x.stop()); vstream=null; Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(null))); }
-  else { if(myRole()==='listener') return toast(t('nomic')); const mm=members.find(x=>x.user_id===user.id); if(mm&&mm.muted) return toast(t('mutedYou'));
-    try{ vstream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ return toast(e&&e.name==='NotAllowedError'?t('micden'):e.message); }
+  else { const mm=members.find(x=>x.user_id===user.id); if(!mm||mm.seat_index==null) return toast(t('nomic')); if(mm.muted) return toast(t('mutedYou'));
+    try{ vstream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }catch(e){ return toast(e&&e.name==='NotAllowedError'?t('micden'):e.message); }
     Object.values(vpeers).forEach(pc=>pc.getSenders().forEach(s=>s.replaceTrack(curTrack()))); watchLevel(vstream,user.id); }
   renderVoice(); }
-function vstat(){ const e=$('#vs'); if(!e) return; const ids=vc?Object.keys(vc.presenceState()):[]; const ps=Object.entries(vpeers).map(([id,pc])=>(names[id]||id.slice(0,4))+': '+pc.iceConnectionState).join(' | '); e.textContent='voice: '+ids.length+' online'+(ps?' | '+ps:' | no peer')+(vstream?' | mic on':' | mic off'); }
-setInterval(vstat,1500);
+function vstat(){ const e=$('#vs'); if(!e) return; const ids=vc?Object.keys(vc.presenceState()):[]; const ps=Object.entries(vpeers).map(([id,pc])=>(names[id]||id.slice(0,4))+': '+pc.iceConnectionState+(pc._ct?'/'+pc._ct:'')).join(' | '); e.textContent='voice: '+ids.length+' online'+(ps?' | '+ps:' | no peer')+(vstream?' | mic on':' | mic off'); }
+async function vtype(){ for(const pc of Object.values(vpeers)){ if(!['connected','completed'].includes(pc.iceConnectionState)) continue; try{ const st=await pc.getStats(); let sel; st.forEach(r=>{ if(r.type==='transport'&&r.selectedCandidatePairId) sel=st.get(r.selectedCandidatePairId); }); if(!sel) st.forEach(r=>{ if(r.type==='candidate-pair'&&r.nominated&&r.state==='succeeded') sel=r; }); const l=sel&&st.get(sel.localCandidateId); if(l) pc._ct=l.candidateType; }catch(e){} } }
+setInterval(vstat,1500); setInterval(()=>{ if(vjoined) vtype(); },3000);
 function voiceLeave(){ stopWatch(user&&user.id); Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; lockOff(); }
 async function boardView(){
   app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🏆 ${t('board')}</h2><button class="sec" id="bb">${t('bk')}</button></div><div id="bl2" class="c" style="padding:0"></div></main>`;
@@ -457,7 +460,7 @@ async function dmView(uid){
   dch=sb.channel('dm-'+user.id)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'dms',filter:'sender_id=eq.'+user.id},p=>{ if(!p.new.read_at) return; const el=box.querySelector('[data-id="'+p.new.id+'"] .tk'); if(el){ el.textContent='✓✓ '+t('readMark'); el.style.color='#4dd4e6'; } })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'dms',filter:'receiver_id=eq.'+user.id},p=>{ if(p.new.sender_id===uid){ add(p.new); sb.rpc('mark_dm_read',{p_peer:uid}); } }).subscribe();
-  const send=async()=>{ const b=$('#di').value.trim(); if(!b) return; if(!navigator.onLine) return toast(t('offline')); $('#di').value=''; const {data:ins,error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:b}).select('id,read_at').single(); if(error) toast(error.message); else add({id:ins&&ins.id,sender_id:user.id,body:b,read_at:ins&&ins.read_at}); };
+  const send=async()=>{ const b=$('#di').value.trim(); if(!b) return; if(!navigator.onLine) return toast(t('offline')); if(Date.now()-(send.l||0)<600) return; send.l=Date.now(); $('#di').value=''; const {data:ins,error}=await sb.from('dms').insert({sender_id:user.id,receiver_id:uid,body:b}).select('id,read_at').single(); if(error){ $('#di').value=b; toast(error.message); } else add({id:ins&&ins.id,sender_id:user.id,body:b,read_at:ins&&ins.read_at}); };
   $('#ds').onclick=send; $('#di').onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing) send(); };
 }
 
