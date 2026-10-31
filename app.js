@@ -196,7 +196,7 @@ function authView(){
 }
 
 async function roomsView(){
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div id="list" class="c" style="padding:0"><p class="note">…</p></div></main>`;
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div id="fr" class="stories" hidden></div><div id="list" class="c" style="padding:0"><p class="note">…</p></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
   $('#lb').onclick=()=>{ view='board'; boardView(); };
   $('#pj').onclick=()=>once($('#pj'),async()=>{ const code=parseInt($('#pc').value,10); if(!code) return toast(t('code')); const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:code,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); });
@@ -209,10 +209,20 @@ async function roomsView(){
   L.querySelectorAll('.card').forEach(el=>{ const go=()=>join(data.find(x=>x.id===el.dataset.id)); el.onclick=go; el.setAttribute('role','button'); el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}}; });
   };
   let tm; $('#sq').oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>draw(true),250); }; try{ $('#sc').value=localStorage.getItem('cat')||''; }catch(e){} $('#sc').onchange=()=>{ try{localStorage.setItem('cat',$('#sc').value)}catch(e){} draw(true); };
-  await draw(false);
-  clearInterval(window._rl); window._rl=setInterval(()=>{ if(!$('#list')) clearInterval(window._rl); else if(!document.hidden) draw(true); },5000);
+  await draw(false); liveFollows();
+  clearInterval(window._rl); window._rl=setInterval(()=>{ if(!$('#list')) clearInterval(window._rl); else if(!document.hidden){ draw(true); liveFollows(); } },5000);
 }
 
+async function liveFollows(){ try{ const box=$('#fr'); if(!box||!user) return;
+  const {data:f}=await sb.from('follow_links').select('followed').eq('follower',user.id); const ids=(f||[]).map(x=>x.followed);
+  if(!ids.length){ box.hidden=true; return; }
+  const {data:rm}=await sb.from('room_members').select('user_id,room_id').in('user_id',ids).is('left_at',null);
+  if(!rm||!rm.length){ if($('#fr')) $('#fr').hidden=true; return; }
+  const {data:ps}=await sb.from('profiles').select('id,display_name,avatar_url').in('id',[...new Set(rm.map(x=>x.user_id))]); (ps||[]).forEach(p=>{ names[p.id]=p.display_name; avs[p.id]=p.avatar_url||''; });
+  const b=$('#fr'); if(!b) return; b.hidden=false;
+  b.innerHTML=rm.map(x=>`<button class="st" data-r="${x.room_id}"><span class="av ${avCls(x.user_id)}">${avInner(x.user_id)}</span><small>${esc(names[x.user_id]||'?')}</small></button>`).join('');
+  b.querySelectorAll('.st').forEach(e=>e.onclick=async()=>{ const {error}=await sb.rpc('join_room',{p_room:e.dataset.r,p_password:null}); if(error) return toast(error.message); cur={id:e.dataset.r}; view='room'; openRoom(e.dataset.r); });
+ }catch(e){} }
 async function join(r){
   const {error}=await sb.rpc('join_room',{p_room:r.id,p_password:null});
   if(error) return toast(error.message);
