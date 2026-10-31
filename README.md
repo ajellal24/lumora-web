@@ -11,6 +11,7 @@ Voice rooms, chat, gifts, DMs and a Discover feed. Static front-end (HTML/CSS/JS
 3. `lumora_extras.sql` – banners and comments
 4. `lumora_polish.sql` – admin moderation of posts and comments
 5. `lumora_v2.sql` – like/comment notifications and admin banner management
+6. `lumora_v3.sql` – follower counts, comment deletion rights, moderation log
 
 ## Deploy (GitHub Pages)
 Put all files in the repo root, enable Pages (main / root), and set Site URL / Redirect URLs in Supabase Auth.

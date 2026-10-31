@@ -135,3 +135,17 @@ main:has(#chat) .send input{border-radius:22px}
 #nbd{position:absolute;top:0;inset-inline-end:4px;background:#ff4d6d;color:#fff;font-size:11px;min-width:18px;text-align:center;border-radius:9px;padding:0 5px}
 #nbd:empty{display:none}
 #bnf input{margin-bottom:6px}
+
+/* ===== Light theme + performance ===== */
+:root[data-theme=light]{--bg:#f6f3ff;--sf:#ffffff;--sf2:#efe9ff;--ol:#ddd3f5;--tx:#1b1235;--tx2:#6b5f93;color-scheme:light}
+:root[data-theme=light] body{background:radial-gradient(100% 40% at 50% -8%,#d9c8ff 0%,transparent 65%) fixed,var(--bg)}
+:root[data-theme=light] .card{background:#fff;box-shadow:0 1px 8px rgba(80,50,160,.12)}
+:root[data-theme=light] #tb{background:rgba(255,255,255,.96)}
+:root[data-theme=light] main:has(#chat) .send{background:rgba(246,243,255,.92)}
+:root[data-theme=light] .m{background:#efe9ff}
+:root[data-theme=light] .tabs button.on{color:var(--tx)}
+:root[data-theme=light] .av.empty{background:#e7defb}
+:root[data-theme=light] #gf.open{box-shadow:0 -10px 28px rgba(60,30,130,.25)}
+#thm{font-size:18px}
+.post,.rc{content-visibility:auto;contain-intrinsic-size:auto 140px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
