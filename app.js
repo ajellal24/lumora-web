@@ -43,9 +43,12 @@ const lvls={};
 function lvb(u){ const l=lvls[u]; return l?` <span class="lv">${l>=30?'💎':l>=15?'🥇':l>=5?'⭐':'🔹'}${l}</span>`:''; }
 function paintMeta(){ if(!cur) return; if(cur.name) document.title=cur.name+' · Lumora'; const p=$('#pin'); if(p){ p.hidden=!cur.pinned; p.textContent='📌 '+(cur.pinned||''); } const s=$('#slwi'); if(s) s.textContent=cur.slow_seconds?' · 🐢 '+cur.slow_seconds+'s':''; const h=document.querySelector('main h2'); if(h&&cur.name) h.textContent=cur.name; }
 function roomSettings2(){ closeSheet(); const me=members.find(x=>x.user_id===user.id), own=!!(me&&me.role==='owner'); const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
-  d.innerHTML=`<div class="sh"><b>⚙ ${t('stg')}</b>${own?`<input id="rnm" maxlength="60" value="${esc(cur.name)}">`:''}<textarea id="pnt" maxlength="200" rows="2" placeholder="📌 ${t('pinPh')}">${esc(cur.pinned||'')}</textarea><select id="slw" aria-label="${t('slow')}">${[0,5,10,30,60].map(n=>`<option value="${n}"${(cur.slow_seconds||0)===n?' selected':''}>🐢 ${t('slow')}: ${n?n+'s':t('off')}</option>`).join('')}</select><button class="pri" data-k="save">${t('pfsave')}</button>${own?`<button class="sec dng" data-k="close">🚪 ${t('closeRoom')}</button>`:''}<button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.innerHTML=`<div class="sh"><b>⚙ ${t('stg')}</b>${own?`<input id="rnm" maxlength="60" value="${esc(cur.name)}">`:''}<textarea id="pnt" maxlength="200" rows="2" placeholder="📌 ${t('pinPh')}">${esc(cur.pinned||'')}</textarea><select id="slw" aria-label="${t('slow')}">${[0,5,10,30,60].map(n=>`<option value="${n}"${(cur.slow_seconds||0)===n?' selected':''}>🐢 ${t('slow')}: ${n?n+'s':t('off')}</option>`).join('')}</select><button class="pri" data-k="save">${t('pfsave')}</button>${own?`<button class="sec" data-k="cover">📷 ${t('cvr')}</button><input id="cvf" type="file" accept="image/*" hidden>`:''}${own?`<button class="sec dng" data-k="close">🚪 ${t('closeRoom')}</button>`:''}<button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k;
     if(k==='x') return closeSheet();
+    if(k==='cover'){ const f=d.querySelector('#cvf'); f.onchange=async ev=>{ const fl=ev.target.files[0]; if(!fl||!fl.type.startsWith('image/')) return toast(t('up_bad')); toast(t('up_busy'));
+        try{ const blob=await shrink(fl,512), path=user.id+'/cover-'+cur.id+'.jpg'; const {error}=await sb.storage.from('posts').upload(path,blob,{upsert:true,contentType:'image/jpeg'}); if(error) throw error;
+          const url=sb.storage.from('posts').getPublicUrl(path).data.publicUrl+'?v='+Date.now(); const r=await sb.rpc('set_room_cover',{p_room:cur.id,p_url:url}); if(r.error) throw r.error; cur.cover_url=url; toast(t('up_ok')); }catch(err){ toast(err.message||String(err)); } }; return f.click(); }
     if(k==='save'){ const pin=$('#pnt').value.trim(), sl=+$('#slw').value;
       if(own){ const n=$('#rnm').value.trim(); if(n&&n!==cur.name){ const {error}=await sb.rpc('rename_room',{p_room:cur.id,p_name:n}); if(error) return toast(error.message); cur.name=n; } }
       let r=await sb.rpc('set_room_pin',{p_room:cur.id,p_text:pin}); if(r.error) return toast(r.error.message);
@@ -133,14 +136,14 @@ function roomSettings(){ closeSheet(); const d=document.createElement('div'); d.
 function shrink(f,n){ return new Promise((ok,no)=>{ const u=URL.createObjectURL(f), im=new Image(); im.onload=()=>{ const s=Math.min(im.width,im.height), c=document.createElement('canvas'); c.width=c.height=n; c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,n,n); URL.revokeObjectURL(u); c.toBlob(b=>b?ok(b):no(new Error('image')),'image/jpeg',.85); }; im.onerror=()=>no(new Error('image')); im.src=u; }); }
 function toast(m){ m=friendly(m); const e=$('#toast'); e.textContent=m; e.className='show'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.className='',3500); }
 function setLang(l){ lang=l; try{localStorage.setItem('lang',l)}catch(e){} document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr'; route(); }
-function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="wl" aria-label="${t('wal')}">🪙</button><button class="ghost" id="ad" aria-label="${t('adm')}" hidden>🛡</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>${logged&&view!=='room'?`<nav id="tb"><button id="th" class="${view==='rooms'?'on':''}">🏠<small>${t('rooms')}</small></button><button id="tbd" class="${view==='board'?'on':''}">🏆<small>${t('board')}</small></button><button id="ib" class="${view==='inbox'||view==='dm'?'on':''}">✉<span id="ubd"></span><small>${t('dm')}</small></button><button id="nm" class="${view==='profile'?'on':''}">👤<small>${t('pf')}</small></button></nav>`:''}`; }
+function hdr(logged){ return `<header><span class="logo">Lumora</span><span class="sp"></span><select id="lg" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="ar">AR</option></select>${logged?`<button class="ghost" id="wl" aria-label="${t('wal')}">🪙</button><button class="ghost" id="ad" aria-label="${t('adm')}" hidden>🛡</button><button class="ghost" id="lo">${t('logout')}</button>`:''}</header>${logged&&view!=='room'?`<nav id="tb"><button id="th" class="${view==='rooms'?'on':''}">🏠<small>${t('rooms')}</small></button><button id="tbd" class="${view==='discover'?'on':''}">🧭<small>${t('disc')}</small></button><button id="ib" class="${view==='inbox'||view==='dm'?'on':''}">✉<span id="ubd"></span><small>${t('dm')}</small></button><button id="nm" class="${view==='profile'?'on':''}">👤<small>${t('pf')}</small></button></nav>`:''}`; }
 let pushed=false;
 function bindHdr(){ setTimeout(()=>{ const h=document.querySelector('main h1,main h2'); const a=document.activeElement; if(h&&!(a&&a.matches&&a.matches('input,textarea,select'))){ h.tabIndex=-1; h.focus({preventScroll:true}); } },0); if(view==='rooms') pushed=false; else if(view!=='auth'&&!pushed){ try{ history.pushState({v:1},''); pushed=true; }catch(e){} }
   document.title='Lumora'; document.querySelectorAll('input:not([aria-label]),textarea:not([aria-label])').forEach(e=>{ if(e.placeholder) e.setAttribute('aria-label',e.placeholder); }); const AL={sh:'share',st:'stg',ds:'send',gsr:'srch'}; for(const k in AL){ const e=document.getElementById(k); if(e&&!e.getAttribute('aria-label')) e.setAttribute('aria-label',t(AL[k])); }
   $('#lg').value=lang; $('#lg').onchange=e=>setLang(e.target.value); const lo=$('#lo'); if(lo) lo.onclick=()=>sb.auth.signOut();
   const ib=$('#ib'); if(ib) ib.onclick=()=>{ cleanup(); cur=null; view='inbox'; inboxView(); };
   const nm=$('#nm'); if(nm) nm.onclick=profileView; refreshUnread();
-  const th=$('#th'); if(th) th.onclick=()=>{ cleanup(); cur=null; view='rooms'; roomsView(); }; const tbd=$('#tbd'); if(tbd) tbd.onclick=()=>{ cleanup(); cur=null; view='board'; boardView(); };
+  const th=$('#th'); if(th) th.onclick=()=>{ cleanup(); cur=null; view='rooms'; roomsView(); }; const tbd=$('#tbd'); if(tbd) tbd.onclick=()=>{ cleanup(); cur=null; view='discover'; discoverView(); };
   const wl=$('#wl'); if(wl) wl.onclick=walletView;
   const ad=$('#ad'); if(ad){ const show=()=>{ ad.hidden=!isAdm; ad.onclick=()=>{ cleanup(); cur=null; view='admin'; adminView(); }; };
     if(isAdm===null) sb.rpc('is_admin').then(({data})=>{ isAdm=data===true; show(); }); else show(); } }
@@ -173,6 +176,7 @@ function route(){
     return sb.rpc('join_room_by_code',{p_public_id:+pr,p_password:null}).then(({data,error})=>{ if(error){ toast(error.message); view='rooms'; return roomsView(); } cur={id:data}; view='room'; openRoom(data); }); }
   if(view==='room' && cur) return openRoom(cur.id);
   if(view==='create') return createView();
+  if(view==='discover') return discoverView();
   if(view==='inbox') return inboxView();
   if(view==='dm'&&dmPeer) return dmView(dmPeer);
   view='rooms'; roomsView();
@@ -196,27 +200,30 @@ function authView(){
 }
 
 async function roomsView(){
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div id="fr" class="stories" hidden></div><div id="list" class="c" style="padding:0"><p class="note">…</p></div></main>`;
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div class="tabs"><button id="t1" class="${rtab==='all'?'on':''}">${t('tabT')}</button><button id="t2" class="${rtab==='fol'?'on':''}">${t('tabF')}</button></div><div id="fr" class="stories" hidden></div><div id="list" class="c" style="padding:0"><p class="note">…</p></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
   $('#lb').onclick=()=>{ view='board'; boardView(); };
   $('#pj').onclick=()=>once($('#pj'),async()=>{ const code=parseInt($('#pc').value,10); if(!code) return toast(t('code')); const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:code,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); });
   const draw=async(quiet)=>{
-  const {data:all,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count').eq('is_live',true).order('participant_count',{ascending:false}).limit(100);
+  const {data:all,error}=await sb.from('rooms').select('id,public_id,name,category,capacity,seat_count,participant_count,cover_url').eq('is_live',true).order('participant_count',{ascending:false}).limit(100);
   if(error){ if(!quiet){ toast(error.message); const L0=$('#list'); if(L0){ L0.innerHTML='<button class="sec" id="rt" aria-label="'+t('retry')+'">↻ '+t('retry')+'</button>'; $('#rt').onclick=()=>draw(false); } } return; }
-  const L=$('#list'); if(!L) return; const q=$('#sq').value.trim().toLowerCase(), cg=$('#sc').value; const data=all.filter(r=>(!cg||r.category===cg)&&(!q||r.name.toLowerCase().includes(q)||String(r.public_id)===q));
+  const L=$('#list'); if(!L) return; const q=$('#sq').value.trim().toLowerCase(), cg=$('#sc').value; const data=all.filter(r=>(!cg||r.category===cg)&&(rtab!=='fol'||folRooms.has(r.id))&&(!q||r.name.toLowerCase().includes(q)||String(r.public_id)===q));
   if(!data.length){ L.innerHTML=`<p class="note">${t('empty')}</p>`; return; }
-  L.innerHTML=data.map(r=>`<div class="card rc" tabindex="0" data-id="${r.id}"><div class="ico">${CI[r.category]||'✨'}</div><div class="rb"><b>${esc(r.name)}</b><span class="tag">${t('c_'+r.category)}</span><small>#${r.public_id}</small></div><span class="live"><i class="eq"></i>${r.participant_count}/${r.capacity}</span></div>`).join('');
+  L.innerHTML=data.map(r=>`<div class="card rc" tabindex="0" data-id="${r.id}"><div class="ico"${/^https?:/.test(r.cover_url||'')?` style="background-image:url('${esc(encodeURI(r.cover_url).replace(/'/g,'%27'))}')"`:''}>${r.cover_url?'':(CI[r.category]||'✨')}</div><div class="rb"><b>${esc(r.name)}</b><span class="tag">${t('c_'+r.category)}</span><small>#${r.public_id}</small></div><span class="live"><i class="eq"></i>${r.participant_count}/${r.capacity}</span></div>`).join('');
   L.querySelectorAll('.card').forEach(el=>{ const go=()=>join(data.find(x=>x.id===el.dataset.id)); el.onclick=go; el.setAttribute('role','button'); el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}}; });
   };
   let tm; $('#sq').oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>draw(true),250); }; try{ $('#sc').value=localStorage.getItem('cat')||''; }catch(e){} $('#sc').onchange=()=>{ try{localStorage.setItem('cat',$('#sc').value)}catch(e){} draw(true); };
+  window._draw=draw; const swt=k=>{ rtab=k; $('#t1').classList.toggle('on',k==='all'); $('#t2').classList.toggle('on',k==='fol'); draw(true); }; $('#t1').onclick=()=>swt('all'); $('#t2').onclick=()=>swt('fol');
   await draw(false); liveFollows();
   clearInterval(window._rl); window._rl=setInterval(()=>{ if(!$('#list')) clearInterval(window._rl); else if(!document.hidden){ draw(true); liveFollows(); } },5000);
 }
 
+let rtab='all', folRooms=new Set();
 async function liveFollows(){ try{ const box=$('#fr'); if(!box||!user) return;
   const {data:f}=await sb.from('follow_links').select('followed').eq('follower',user.id); const ids=(f||[]).map(x=>x.followed);
-  if(!ids.length){ box.hidden=true; return; }
+  if(!ids.length){ box.hidden=true; folRooms=new Set(); return; }
   const {data:rm}=await sb.from('room_members').select('user_id,room_id').in('user_id',ids).is('left_at',null);
+  folRooms=new Set((rm||[]).map(x=>x.room_id)); if(rtab==='fol'&&window._draw) window._draw(true);
   if(!rm||!rm.length){ if($('#fr')) $('#fr').hidden=true; return; }
   const {data:ps}=await sb.from('profiles').select('id,display_name,avatar_url').in('id',[...new Set(rm.map(x=>x.user_id))]); (ps||[]).forEach(p=>{ names[p.id]=p.display_name; avs[p.id]=p.avatar_url||''; });
   const b=$('#fr'); if(!b) return; b.hidden=false;
@@ -331,6 +338,32 @@ function vstat(){ const e=$('#vs'); if(!e) return; const ids=vc?Object.keys(vc.p
 async function vtype(){ for(const pc of Object.values(vpeers)){ if(!['connected','completed'].includes(pc.iceConnectionState)) continue; try{ const st=await pc.getStats(); let sel; st.forEach(r=>{ if(r.type==='transport'&&r.selectedCandidatePairId) sel=st.get(r.selectedCandidatePairId); }); if(!sel) st.forEach(r=>{ if(r.type==='candidate-pair'&&r.nominated&&r.state==='succeeded') sel=r; }); const l=sel&&st.get(sel.localCandidateId); if(l) pc._ct=l.candidateType; }catch(e){} } }
 setInterval(vstat,1500); setInterval(()=>{ if(vjoined) vtype(); },3000);
 function voiceLeave(){ stopWatch(user&&user.id); Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; lockOff(); }
+let postLikes=new Set();
+async function discoverView(){
+  view='discover'; app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🧭 ${t('disc')}</h2><button class="pri" id="np">✎ ${t('npost')}</button></div><div id="pl" class="c" style="padding:0"><p class="note">…</p></div></main>`;
+  bindHdr(); $('#np').onclick=postSheet; await loadPosts(); }
+async function loadPosts(){
+  const {data,error}=await sb.from('posts').select('id,user_id,body,image_url,created_at,post_likes(count)').order('created_at',{ascending:false}).limit(30);
+  if(error) return toast(error.message);
+  const ids=[...new Set((data||[]).map(p=>p.user_id))];
+  if(ids.length){ const {data:ps}=await sb.from('profiles').select('id,display_name,avatar_url').in('id',ids); (ps||[]).forEach(x=>{ names[x.id]=x.display_name; avs[x.id]=x.avatar_url||''; }); }
+  const {data:ml}=await sb.from('post_likes').select('post_id').eq('user_id',user.id).in('post_id',(data||[]).map(p=>p.id)); postLikes=new Set((ml||[]).map(x=>x.post_id));
+  const L=$('#pl'); if(!L) return;
+  L.innerHTML=(data||[]).length?data.map(p=>`<div class="card post" style="cursor:default"><div class="row" style="justify-content:flex-start;gap:10px"><span class="av sm ${avCls(p.user_id)}">${avInner(p.user_id)}</span><div><b>${esc(names[p.user_id]||'?')}</b><br><small>${new Date(p.created_at).toLocaleString()}</small></div></div>${p.body?`<p style="white-space:pre-wrap;word-break:break-word">${linkify(p.body)}</p>`:''}${/^https?:/.test(p.image_url||'')?`<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="">`:''}<div class="row"><button class="ghost" data-l="${p.id}">${postLikes.has(p.id)?'❤️':'🤍'} <span>${p.post_likes&&p.post_likes[0]?p.post_likes[0].count:0}</span></button>${p.user_id===user.id?`<button class="ghost" data-d="${p.id}" aria-label="${t('del')}">🗑</button>`:''}</div></div>`).join(''):`<p class="note">${t('nodm')}</p>`;
+  L.onclick=async e=>{ const l=e.target.closest('[data-l]'), d=e.target.closest('[data-d]');
+    if(l){ const id=l.dataset.l, on=postLikes.has(id); const r=on?await sb.from('post_likes').delete().eq('post_id',id).eq('user_id',user.id):await sb.from('post_likes').insert({post_id:id,user_id:user.id}); if(r.error) return toast(r.error.message); if(on) postLikes.delete(id); else postLikes.add(id); const sp=l.querySelector('span'); sp.textContent=Math.max(0,+sp.textContent+(on?-1:1)); l.firstChild.textContent=on?'🤍 ':'❤️ '; }
+    else if(d&&confirm(t('delAsk'))){ const {error}=await sb.from('posts').delete().eq('id',d.dataset.d); if(error) toast(error.message); else loadPosts(); } }; }
+function postSheet(){ closeSheet(); const d=document.createElement('div'); d.id='sheet'; d.className='sheet'; let blob=null;
+  d.innerHTML=`<div class="sh"><b>✎ ${t('npost')}</b><textarea id="pt" maxlength="500" rows="4" placeholder="${t('npost')}"></textarea><img id="pp2" class="pimg" hidden alt=""><input id="pf2" type="file" accept="image/*" hidden><button class="sec" data-k="img">📷 ${t('upl')}</button><button class="pri" data-k="go">${t('send')}</button><button class="ghost" data-k="x">${t('close')}</button></div>`;
+  d.querySelector('#pf2').onchange=async e=>{ const f=e.target.files[0]; if(!f||!f.type.startsWith('image/')) return toast(t('up_bad')); try{ blob=await shrink(f,720); const im=d.querySelector('#pp2'); im.src=URL.createObjectURL(blob); im.hidden=false; }catch(err){ toast(err.message); } };
+  d.onclick=async e=>{ if(e.target===d) return closeSheet(); const b=e.target.closest('button'); if(!b) return; const k=b.dataset.k; if(k==='x') return closeSheet(); if(k==='img') return d.querySelector('#pf2').click();
+    if(k==='go') return once(b,async()=>{ const body=d.querySelector('#pt').value.trim(); if(!body&&!blob) return; let url=null;
+      if(blob){ const path=user.id+'/post-'+Date.now()+'.jpg'; const {error}=await sb.storage.from('posts').upload(path,blob,{contentType:'image/jpeg'}); if(error) return toast(error.message); url=sb.storage.from('posts').getPublicUrl(path).data.publicUrl; }
+      const {error}=await sb.from('posts').insert({user_id:user.id,body:body||'',image_url:url}); if(error) return toast(error.message); closeSheet(); loadPosts(); }); };
+  openSheet(d); }
+Object.assign(T.en,{disc:'Discover',npost:'New post',tabT:'Trending',tabF:'Following',cvr:'Room cover'});
+Object.assign(T.fr,{disc:'Découvrir',npost:'Nouvelle publication',tabT:'Tendance',tabF:'Abonnements',cvr:'Couverture du salon'});
+Object.assign(T.ar,{disc:'اكتشف',npost:'منشور جديد',tabT:'ترند',tabF:'المتابَعون',cvr:'صورة الغرفة'});
 async function boardView(){
   app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🏆 ${t('board')}</h2><button class="sec" id="bb">${t('bk')}</button></div><div id="bl2" class="c" style="padding:0"></div></main>`;
   bindHdr(); $('#bb').onclick=()=>{ view='rooms'; roomsView(); };
