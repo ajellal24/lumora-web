@@ -200,7 +200,7 @@ function authView(){
 }
 
 async function roomsView(){
-  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div class="tabs"><button id="t1" class="${rtab==='all'?'on':''}">${t('tabT')}</button><button id="t2" class="${rtab==='fol'?'on':''}">${t('tabF')}</button></div><div id="fr" class="stories" hidden></div><div id="list" class="c" style="padding:0"><p class="note">…</p></div></main>`;
+  app.innerHTML = hdr(true)+`<main class="c"><div class="row"><h2>${t('rooms')}</h2><button class="sec" id="lb" aria-label="${t('board')}">🏆</button><button class="pri" id="new">+ ${t('create')}</button></div><div class="row"><input id="pc" placeholder="${t('code')}" inputmode="numeric"><input id="pp" type="password" placeholder="${t('pw')}"><button class="sec" id="pj">${t('joinPriv')}</button></div><div class="row"><input id="sq" placeholder="${t('srch')}"><select id="sc" style="width:auto"><option value="">${t('allc')}</option>${Object.keys(CI).map(k=>`<option value="${k}">${CI[k]} ${t('c_'+k)}</option>`).join('')}</select></div><div id="bn" class="bn" hidden></div><div class="tabs"><button id="t1" class="${rtab==='all'?'on':''}">${t('tabT')}</button><button id="t2" class="${rtab==='fol'?'on':''}">${t('tabF')}</button></div><div id="fr" class="stories" hidden></div><div id="list" class="c" style="padding:0"><p class="note">…</p></div></main>`;
   bindHdr(); $('#new').onclick=()=>{ view='create'; createView(); };
   $('#lb').onclick=()=>{ view='board'; boardView(); };
   $('#pj').onclick=()=>once($('#pj'),async()=>{ const code=parseInt($('#pc').value,10); if(!code) return toast(t('code')); const {data,error}=await sb.rpc('join_room_by_code',{p_public_id:code,p_password:$('#pp').value||null}); if(error) return toast(error.message); cur={id:data}; view='room'; openRoom(data); });
@@ -214,11 +214,17 @@ async function roomsView(){
   };
   let tm; $('#sq').oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>draw(true),250); }; try{ $('#sc').value=localStorage.getItem('cat')||''; }catch(e){} $('#sc').onchange=()=>{ try{localStorage.setItem('cat',$('#sc').value)}catch(e){} draw(true); };
   window._draw=draw; const swt=k=>{ rtab=k; $('#t1').classList.toggle('on',k==='all'); $('#t2').classList.toggle('on',k==='fol'); draw(true); }; $('#t1').onclick=()=>swt('all'); $('#t2').onclick=()=>swt('fol');
-  await draw(false); liveFollows();
+  await draw(false); liveFollows(); loadBanners();
   clearInterval(window._rl); window._rl=setInterval(()=>{ if(!$('#list')) clearInterval(window._rl); else if(!document.hidden){ draw(true); liveFollows(); } },5000);
 }
 
 let rtab='all', folRooms=new Set();
+async function loadBanners(){ try{ const {data}=await sb.from('banners').select('title,image_url,link_url').eq('is_active',true).order('sort').limit(6); const b=$('#bn'); if(!b||!data||!data.length) return; b.hidden=false;
+  b.innerHTML=`<div class="bt">${data.map(x=>`<a class="bi" ${/^https:/.test(x.link_url||'')?`href="${esc(x.link_url)}" target="_blank" rel="noopener noreferrer"`:''} style="${/^https:/.test(x.image_url||'')?`background-image:url('${esc(encodeURI(x.image_url).replace(/'/g,'%27'))}')`:''}"><span>${esc(x.title||'')}</span></a>`).join('')}</div><div class="bd">${data.map((_,i)=>`<i${i?'':' class="on"'}></i>`).join('')}</div>`;
+  const tr=b.querySelector('.bt'), dots=b.querySelectorAll('.bd i'); let i=0; clearInterval(window._bn);
+  const go=n=>{ i=(n+data.length)%data.length; tr.scrollTo({left:(document.documentElement.dir==='rtl'?-1:1)*i*tr.clientWidth,behavior:'smooth'}); };
+  tr.onscroll=()=>{ const k=Math.round(Math.abs(tr.scrollLeft)/tr.clientWidth); dots.forEach((d,j)=>d.classList.toggle('on',j===k)); i=k; };
+  window._bn=setInterval(()=>{ if(!$('#bn')) clearInterval(window._bn); else if(!document.hidden) go(i+1); },4500); }catch(e){} }
 async function liveFollows(){ try{ const box=$('#fr'); if(!box||!user) return;
   const {data:f}=await sb.from('follow_links').select('followed').eq('follower',user.id); const ids=(f||[]).map(x=>x.followed);
   if(!ids.length){ box.hidden=true; folRooms=new Set(); return; }
@@ -343,16 +349,25 @@ async function discoverView(){
   view='discover'; app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🧭 ${t('disc')}</h2><button class="pri" id="np">✎ ${t('npost')}</button></div><div id="pl" class="c" style="padding:0"><p class="note">…</p></div></main>`;
   bindHdr(); $('#np').onclick=postSheet; await loadPosts(); }
 async function loadPosts(){
-  const {data,error}=await sb.from('posts').select('id,user_id,body,image_url,created_at,post_likes(count)').order('created_at',{ascending:false}).limit(30);
+  const {data,error}=await sb.from('posts').select('id,user_id,body,image_url,created_at,post_likes(count),post_comments(count)').order('created_at',{ascending:false}).limit(30);
   if(error) return toast(error.message);
   const ids=[...new Set((data||[]).map(p=>p.user_id))];
   if(ids.length){ const {data:ps}=await sb.from('profiles').select('id,display_name,avatar_url').in('id',ids); (ps||[]).forEach(x=>{ names[x.id]=x.display_name; avs[x.id]=x.avatar_url||''; }); }
   const {data:ml}=await sb.from('post_likes').select('post_id').eq('user_id',user.id).in('post_id',(data||[]).map(p=>p.id)); postLikes=new Set((ml||[]).map(x=>x.post_id));
   const L=$('#pl'); if(!L) return;
-  L.innerHTML=(data||[]).length?data.map(p=>`<div class="card post" style="cursor:default"><div class="row" style="justify-content:flex-start;gap:10px"><span class="av sm ${avCls(p.user_id)}">${avInner(p.user_id)}</span><div><b>${esc(names[p.user_id]||'?')}</b><br><small>${new Date(p.created_at).toLocaleString()}</small></div></div>${p.body?`<p style="white-space:pre-wrap;word-break:break-word">${linkify(p.body)}</p>`:''}${/^https?:/.test(p.image_url||'')?`<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="">`:''}<div class="row"><button class="ghost" data-l="${p.id}">${postLikes.has(p.id)?'❤️':'🤍'} <span>${p.post_likes&&p.post_likes[0]?p.post_likes[0].count:0}</span></button>${p.user_id===user.id?`<button class="ghost" data-d="${p.id}" aria-label="${t('del')}">🗑</button>`:''}</div></div>`).join(''):`<p class="note">${t('nodm')}</p>`;
-  L.onclick=async e=>{ const l=e.target.closest('[data-l]'), d=e.target.closest('[data-d]');
+  L.innerHTML=(data||[]).length?data.map(p=>`<div class="card post" style="cursor:default"><div class="row" style="justify-content:flex-start;gap:10px"><span class="av sm ${avCls(p.user_id)}">${avInner(p.user_id)}</span><div><b>${esc(names[p.user_id]||'?')}</b><br><small>${new Date(p.created_at).toLocaleString()}</small></div></div>${p.body?`<p style="white-space:pre-wrap;word-break:break-word">${linkify(p.body)}</p>`:''}${/^https?:/.test(p.image_url||'')?`<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="">`:''}<div class="row"><button class="ghost" data-l="${p.id}">${postLikes.has(p.id)?'❤️':'🤍'} <span>${p.post_likes&&p.post_likes[0]?p.post_likes[0].count:0}</span></button><button class="ghost" data-c="${p.id}">💬 <span>${p.post_comments&&p.post_comments[0]?p.post_comments[0].count:0}</span></button>${p.user_id===user.id?`<button class="ghost" data-d="${p.id}" aria-label="${t('del')}">🗑</button>`:''}</div></div>`).join(''):`<p class="note">${t('nodm')}</p>`;
+  L.onclick=async e=>{ const l=e.target.closest('[data-l]'), d=e.target.closest('[data-d]'), c=e.target.closest('[data-c]'); if(c) return commentSheet(c.dataset.c,c);
     if(l){ const id=l.dataset.l, on=postLikes.has(id); const r=on?await sb.from('post_likes').delete().eq('post_id',id).eq('user_id',user.id):await sb.from('post_likes').insert({post_id:id,user_id:user.id}); if(r.error) return toast(r.error.message); if(on) postLikes.delete(id); else postLikes.add(id); const sp=l.querySelector('span'); sp.textContent=Math.max(0,+sp.textContent+(on?-1:1)); l.firstChild.textContent=on?'🤍 ':'❤️ '; }
     else if(d&&confirm(t('delAsk'))){ const {error}=await sb.from('posts').delete().eq('id',d.dataset.d); if(error) toast(error.message); else loadPosts(); } }; }
+async function commentSheet(pid,btn){ closeSheet(); const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
+  d.innerHTML=`<div class="sh"><b>💬 ${t('cmt')}</b><div class="chat" id="cl" style="height:40vh"></div><div class="send"><input id="ci" maxlength="300" autocomplete="off" enterkeyhint="send" placeholder="${t('msg')}"><button class="pri" id="cs">${t('send')}</button></div><button class="ghost" data-k="x">${t('close')}</button></div>`;
+  const box=d.querySelector('#cl'); const add=c=>{ const e=document.createElement('div'); e.className='m'+(c.user_id===user.id?' me':''); e.innerHTML=`<b>${esc(names[c.user_id]||'?')}</b> ${linkify(c.body)}`; box.appendChild(e); box.scrollTop=box.scrollHeight; };
+  d.onclick=e=>{ if(e.target===d||e.target.closest('[data-k="x"]')) closeSheet(); }; openSheet(d);
+  const {data}=await sb.from('post_comments').select('user_id,body').eq('post_id',pid).order('created_at').limit(100);
+  const need=[...new Set((data||[]).map(x=>x.user_id))].filter(u=>!names[u]); if(need.length){ const {data:ps}=await sb.from('profiles').select('id,display_name').in('id',need); (ps||[]).forEach(x=>names[x.id]=x.display_name); }
+  (data||[]).forEach(add);
+  const send=()=>once(d.querySelector('#cs'),async()=>{ const i=d.querySelector('#ci'), b=i.value.trim(); if(!b) return; const {error}=await sb.from('post_comments').insert({post_id:pid,user_id:user.id,body:b}); if(error) return toast(error.message); i.value=''; await nameOf(user.id); add({user_id:user.id,body:b}); const sp=btn&&btn.querySelector('span'); if(sp) sp.textContent=+sp.textContent+1; });
+  d.querySelector('#cs').onclick=send; d.querySelector('#ci').onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing) send(); }; }
 function postSheet(){ closeSheet(); const d=document.createElement('div'); d.id='sheet'; d.className='sheet'; let blob=null;
   d.innerHTML=`<div class="sh"><b>✎ ${t('npost')}</b><textarea id="pt" maxlength="500" rows="4" placeholder="${t('npost')}"></textarea><img id="pp2" class="pimg" hidden alt=""><input id="pf2" type="file" accept="image/*" hidden><button class="sec" data-k="img">📷 ${t('upl')}</button><button class="pri" data-k="go">${t('send')}</button><button class="ghost" data-k="x">${t('close')}</button></div>`;
   d.querySelector('#pf2').onchange=async e=>{ const f=e.target.files[0]; if(!f||!f.type.startsWith('image/')) return toast(t('up_bad')); try{ blob=await shrink(f,720); const im=d.querySelector('#pp2'); im.src=URL.createObjectURL(blob); im.hidden=false; }catch(err){ toast(err.message); } };
@@ -361,6 +376,7 @@ function postSheet(){ closeSheet(); const d=document.createElement('div'); d.id=
       if(blob){ const path=user.id+'/post-'+Date.now()+'.jpg'; const {error}=await sb.storage.from('posts').upload(path,blob,{contentType:'image/jpeg'}); if(error) return toast(error.message); url=sb.storage.from('posts').getPublicUrl(path).data.publicUrl; }
       const {error}=await sb.from('posts').insert({user_id:user.id,body:body||'',image_url:url}); if(error) return toast(error.message); closeSheet(); loadPosts(); }); };
   openSheet(d); }
+Object.assign(T.en,{cmt:'Comments'});Object.assign(T.fr,{cmt:'Commentaires'});Object.assign(T.ar,{cmt:'التعليقات'});
 Object.assign(T.en,{disc:'Discover',npost:'New post',tabT:'Trending',tabF:'Following',cvr:'Room cover'});
 Object.assign(T.fr,{disc:'Découvrir',npost:'Nouvelle publication',tabT:'Tendance',tabF:'Abonnements',cvr:'Couverture du salon'});
 Object.assign(T.ar,{disc:'اكتشف',npost:'منشور جديد',tabT:'ترند',tabF:'المتابَعون',cvr:'صورة الغرفة'});
