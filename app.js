@@ -215,7 +215,7 @@ async function roomsView(){
   let tm; $('#sq').oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>draw(true),250); }; try{ $('#sc').value=localStorage.getItem('cat')||''; }catch(e){} $('#sc').onchange=()=>{ try{localStorage.setItem('cat',$('#sc').value)}catch(e){} draw(true); };
   window._draw=draw; const swt=k=>{ rtab=k; $('#t1').classList.toggle('on',k==='all'); $('#t2').classList.toggle('on',k==='fol'); draw(true); }; $('#t1').onclick=()=>swt('all'); $('#t2').onclick=()=>swt('fol');
   await draw(false); liveFollows(); loadBanners();
-  clearInterval(window._rl); window._rl=setInterval(()=>{ if(!$('#list')) clearInterval(window._rl); else if(!document.hidden){ draw(true); liveFollows(); } },5000);
+  clearInterval(window._rl); window._rl=setInterval(()=>{ if(!$('#list')) clearInterval(window._rl); else if(!document.hidden){ draw(true); window._lf=(window._lf||0)+1; if(window._lf%3===0) liveFollows(); } },5000);
 }
 
 let rtab='all', folRooms=new Set();
@@ -294,11 +294,12 @@ async function openRoom(id){
     .subscribe(st=>{ if((st==='CHANNEL_ERROR'||st==='TIMED_OUT')&&navigator.onLine&&cur&&cur.id===id&&!cur._leaving){ clearTimeout(window._rc); window._rc=setTimeout(()=>{ if(cur&&cur.id===id&&view==='room'&&!cur._leaving) openRoom(id); },4000); } });
 }
 
+let DBG=false; try{ DBG=/[?&]debug\b/.test(location.search)||localStorage.getItem('dbg')==='1'; }catch(e){}
 const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},...(CFG.turn||[])],iceCandidatePoolSize:2};
 let vc=null,vpeers={},vstream=null,vjoined=false;
 function myRole(){ const m=members.find(x=>x.user_id===user.id); return m?m.role:'listener'; }
 function renderVoice(){ const v=$('#vo'); if(!v) return;
-  v.innerHTML=`<button class="sec" id="vj">${vjoined?'🔇 '+t('vleave'):'🎧 '+t('vjoin')}</button>${vjoined?`<button class="${vstream?'pri':'sec'}" id="vm">🎙 ${vstream?t('micoff'):t('mic')}</button><small id="vs" dir="ltr" style="display:block;width:100%;color:var(--tx2)"></small>`:''}`;
+  v.innerHTML=`<button class="sec" id="vj">${vjoined?'🔇 '+t('vleave'):'🎧 '+t('vjoin')}</button>${vjoined?`<button class="${vstream?'pri':'sec'}" id="vm">🎙 ${vstream?t('micoff'):t('mic')}</button><small id="vs" dir="ltr" style="display:${DBG?'block':'none'};width:100%;color:var(--tx2)"></small>`:''}`;
   $('#vj').onclick=()=>{ if(vjoined){ voiceLeave(); renderVoice(); } else voiceJoin(); };
   const m=$('#vm'); if(m) m.onclick=micToggle; }
 const vmon={};
@@ -344,20 +345,22 @@ function vstat(){ const e=$('#vs'); if(!e) return; const ids=vc?Object.keys(vc.p
 async function vtype(){ for(const pc of Object.values(vpeers)){ if(!['connected','completed'].includes(pc.iceConnectionState)) continue; try{ const st=await pc.getStats(); let sel; st.forEach(r=>{ if(r.type==='transport'&&r.selectedCandidatePairId) sel=st.get(r.selectedCandidatePairId); }); if(!sel) st.forEach(r=>{ if(r.type==='candidate-pair'&&r.nominated&&r.state==='succeeded') sel=r; }); const l=sel&&st.get(sel.localCandidateId); if(l) pc._ct=l.candidateType; }catch(e){} } }
 setInterval(vstat,1500); setInterval(()=>{ if(vjoined) vtype(); },3000);
 function voiceLeave(){ stopWatch(user&&user.id); Object.keys(vpeers).forEach(drop); if(vstream){ vstream.getTracks().forEach(x=>x.stop()); vstream=null; } if(vc){ sb.removeChannel(vc); vc=null; } vjoined=false; lockOff(); }
-let postLikes=new Set();
+let postLikes=new Set(), postLimit=20;
 async function discoverView(){
-  view='discover'; app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🧭 ${t('disc')}</h2><button class="pri" id="np">✎ ${t('npost')}</button></div><div id="pl" class="c" style="padding:0"><p class="note">…</p></div></main>`;
+  view='discover'; postLimit=20; app.innerHTML=hdr(true)+`<main class="c"><div class="row"><h2>🧭 ${t('disc')}</h2><button class="pri" id="np">✎ ${t('npost')}</button></div><div id="pl" class="c" style="padding:0"><p class="note">…</p></div></main>`;
   bindHdr(); $('#np').onclick=postSheet; await loadPosts(); }
 async function loadPosts(){
-  const {data,error}=await sb.from('posts').select('id,user_id,body,image_url,created_at,post_likes(count),post_comments(count)').order('created_at',{ascending:false}).limit(30);
+  const {data,error}=await sb.from('posts').select('id,user_id,body,image_url,created_at,post_likes(count),post_comments(count)').order('created_at',{ascending:false}).limit(postLimit);
   if(error) return toast(error.message);
   const ids=[...new Set((data||[]).map(p=>p.user_id))];
   if(ids.length){ const {data:ps}=await sb.from('profiles').select('id,display_name,avatar_url').in('id',ids); (ps||[]).forEach(x=>{ names[x.id]=x.display_name; avs[x.id]=x.avatar_url||''; }); }
   const {data:ml}=await sb.from('post_likes').select('post_id').eq('user_id',user.id).in('post_id',(data||[]).map(p=>p.id)); postLikes=new Set((ml||[]).map(x=>x.post_id));
   const L=$('#pl'); if(!L) return;
-  L.innerHTML=(data||[]).length?data.map(p=>`<div class="card post" style="cursor:default"><div class="row" style="justify-content:flex-start;gap:10px"><span class="av sm ${avCls(p.user_id)}">${avInner(p.user_id)}</span><div><b>${esc(names[p.user_id]||'?')}</b><br><small>${new Date(p.created_at).toLocaleString()}</small></div></div>${p.body?`<p style="white-space:pre-wrap;word-break:break-word">${linkify(p.body)}</p>`:''}${/^https?:/.test(p.image_url||'')?`<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="">`:''}<div class="row"><button class="ghost" data-l="${p.id}">${postLikes.has(p.id)?'❤️':'🤍'} <span>${p.post_likes&&p.post_likes[0]?p.post_likes[0].count:0}</span></button><button class="ghost" data-c="${p.id}">💬 <span>${p.post_comments&&p.post_comments[0]?p.post_comments[0].count:0}</span></button>${p.user_id===user.id?`<button class="ghost" data-d="${p.id}" aria-label="${t('del')}">🗑</button>`:''}</div></div>`).join(''):`<p class="note">${t('nodm')}</p>`;
-  L.onclick=async e=>{ const l=e.target.closest('[data-l]'), d=e.target.closest('[data-d]'), c=e.target.closest('[data-c]'); if(c) return commentSheet(c.dataset.c,c);
+  L.innerHTML=(data||[]).length?data.map(p=>`<div class="card post" style="cursor:default"><div class="row" style="justify-content:flex-start;gap:10px"><span class="av sm ${avCls(p.user_id)}">${avInner(p.user_id)}</span><div><b>${esc(names[p.user_id]||'?')}</b><br><small>${new Date(p.created_at).toLocaleString()}</small></div></div>${p.body?`<p style="white-space:pre-wrap;word-break:break-word">${linkify(p.body)}</p>`:''}${/^https?:/.test(p.image_url||'')?`<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="">`:''}<div class="row"><button class="ghost" data-l="${p.id}">${postLikes.has(p.id)?'❤️':'🤍'} <span>${p.post_likes&&p.post_likes[0]?p.post_likes[0].count:0}</span></button><button class="ghost" data-c="${p.id}">💬 <span>${p.post_comments&&p.post_comments[0]?p.post_comments[0].count:0}</span></button>${p.user_id===user.id||isAdm?`<button class="ghost" data-d="${p.id}" aria-label="${t('del')}">🗑</button>`:''}${p.user_id!==user.id?`<button class="ghost" data-rp="${p.id}" data-ru="${p.user_id}" aria-label="${t('rep')}">⚠</button>`:''}</div></div>`).join(''):`<p class="note">${t('nodm')}</p>`;
+  if((data||[]).length>=postLimit) L.insertAdjacentHTML('beforeend',`<button class="sec" id="pm">↓ ${t('more')}</button>`);
+  L.onclick=async e=>{ const l=e.target.closest('[data-l]'), d=e.target.closest('[data-d]'), c=e.target.closest('[data-c]'), rp=e.target.closest('[data-rp]'); if(c) return commentSheet(c.dataset.c,c); if(e.target.closest('#pm')){ postLimit+=20; return loadPosts(); }
     if(l){ const id=l.dataset.l, on=postLikes.has(id); const r=on?await sb.from('post_likes').delete().eq('post_id',id).eq('user_id',user.id):await sb.from('post_likes').insert({post_id:id,user_id:user.id}); if(r.error) return toast(r.error.message); if(on) postLikes.delete(id); else postLikes.add(id); const sp=l.querySelector('span'); sp.textContent=Math.max(0,+sp.textContent+(on?-1:1)); l.firstChild.textContent=on?'🤍 ':'❤️ '; }
+    else if(rp){ const why=(prompt(t('repAsk'))||'').trim().slice(0,450); if(why){ const {error}=await sb.from('reports').insert({reporter:user.id,reported:rp.dataset.ru,room_id:null,reason:'[post '+rp.dataset.rp+'] '+why}); toast(error?error.message:t('repSent')); } }
     else if(d&&confirm(t('delAsk'))){ const {error}=await sb.from('posts').delete().eq('id',d.dataset.d); if(error) toast(error.message); else loadPosts(); } }; }
 async function commentSheet(pid,btn){ closeSheet(); const d=document.createElement('div'); d.id='sheet'; d.className='sheet';
   d.innerHTML=`<div class="sh"><b>💬 ${t('cmt')}</b><div class="chat" id="cl" style="height:40vh"></div><div class="send"><input id="ci" maxlength="300" autocomplete="off" enterkeyhint="send" placeholder="${t('msg')}"><button class="pri" id="cs">${t('send')}</button></div><button class="ghost" data-k="x">${t('close')}</button></div>`;
@@ -376,6 +379,7 @@ function postSheet(){ closeSheet(); const d=document.createElement('div'); d.id=
       if(blob){ const path=user.id+'/post-'+Date.now()+'.jpg'; const {error}=await sb.storage.from('posts').upload(path,blob,{contentType:'image/jpeg'}); if(error) return toast(error.message); url=sb.storage.from('posts').getPublicUrl(path).data.publicUrl; }
       const {error}=await sb.from('posts').insert({user_id:user.id,body:body||'',image_url:url}); if(error) return toast(error.message); closeSheet(); loadPosts(); }); };
   openSheet(d); }
+Object.assign(T.en,{more:'Load more'});Object.assign(T.fr,{more:'Voir plus'});Object.assign(T.ar,{more:'عرض المزيد'});
 Object.assign(T.en,{cmt:'Comments'});Object.assign(T.fr,{cmt:'Commentaires'});Object.assign(T.ar,{cmt:'التعليقات'});
 Object.assign(T.en,{disc:'Discover',npost:'New post',tabT:'Trending',tabF:'Following',cvr:'Room cover'});
 Object.assign(T.fr,{disc:'Découvrir',npost:'Nouvelle publication',tabT:'Tendance',tabF:'Abonnements',cvr:'Couverture du salon'});
