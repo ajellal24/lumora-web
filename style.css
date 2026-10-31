@@ -132,3 +132,6 @@ main:has(#chat) .send input{border-radius:22px}
 .bt{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:20px;scrollbar-width:none}.bt::-webkit-scrollbar{display:none}
 .bi{flex:0 0 100%;scroll-snap-align:center;height:120px;background:linear-gradient(135deg,var(--vi),var(--mg)) center/cover;display:flex;align-items:flex-end;padding:12px 16px;color:#fff;text-decoration:none;font-weight:700;font-size:18px;text-shadow:0 1px 6px #000}
 .bd{position:absolute;bottom:8px;inset-inline:0;display:flex;justify-content:center;gap:5px;pointer-events:none}.bd i{width:6px;height:6px;border-radius:50%;background:#fff6}.bd i.on{background:#fff}
+#nbd{position:absolute;top:0;inset-inline-end:4px;background:#ff4d6d;color:#fff;font-size:11px;min-width:18px;text-align:center;border-radius:9px;padding:0 5px}
+#nbd:empty{display:none}
+#bnf input{margin-bottom:6px}

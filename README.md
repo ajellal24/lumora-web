@@ -10,6 +10,7 @@ Voice rooms, chat, gifts, DMs and a Discover feed. Static front-end (HTML/CSS/JS
 2. `lumora_social.sql` – room covers, posts, likes, storage bucket `posts`
 3. `lumora_extras.sql` – banners and comments
 4. `lumora_polish.sql` – admin moderation of posts and comments
+5. `lumora_v2.sql` – like/comment notifications and admin banner management
 
 ## Deploy (GitHub Pages)
 Put all files in the repo root, enable Pages (main / root), and set Site URL / Redirect URLs in Supabase Auth.
